@@ -2,7 +2,9 @@ import { format } from "date-fns";
 import { FileText, Pin, Tag, Archive } from "lucide-react";
 import { clsx } from "clsx";
 import { useNoteStore } from "@/features/notes/note.store";
+import { extractTags } from "@/features/notes/note.store";
 import type { Note } from "@/features/notes/types";
+import type { NoteStore } from "@/features/notes/types";
 import type { TabComponentProps } from "@/features/tabs/types";
 
 function NoteRow({ note }: { note: Note }) {
@@ -41,15 +43,14 @@ function NoteRow({ note }: { note: Note }) {
 }
 
 export function LibraryPage(_props: TabComponentProps) {
-  const allNotes = useNoteStore((s) => s.notes);
-  const { allTags } = useNoteStore();
-  const tags = allTags();
+  const allNotes = useNoteStore((s: NoteStore) => s.notes);
+  const tags = extractTags(allNotes);
 
   const total    = allNotes.length;
-  const archived = allNotes.filter((n) => n.archived).length;
-  const pinned   = allNotes.filter((n) => n.pinned).length;
+  const archived = allNotes.filter((n: Note) => n.archived).length;
+  const pinned   = allNotes.filter((n: Note) => n.pinned).length;
 
-  const sorted = [...allNotes].sort((a, b) => b.updatedAt - a.updatedAt);
+  const sorted = [...allNotes].sort((a: Note, b: Note) => b.updatedAt - a.updatedAt);
 
   return (
     <div className="flex flex-col h-full animate-fade-in">

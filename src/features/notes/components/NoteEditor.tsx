@@ -10,8 +10,9 @@ import {
 import { clsx } from "clsx";
 import { format } from "date-fns";
 import { useNoteStore } from "../note.store";
-
-const AUTO_SAVE_DELAY = 800; // ms
+import { useKernel } from "@/core";
+import { SYNC_EVENTS } from "@/bridge/tauri-sync";
+import type { Note } from "../types";
 
 // ── Tag input ─────────────────────────────────────────────────────────────────
 
@@ -66,36 +67,55 @@ function TagInput({ noteId, tags }: { noteId: string; tags: string[] }) {
 }
 
 // ── Note Editor ───────────────────────────────────────────────────────────────
+// Save strategy: keep a local draft in refs while typing.
+// Flush to Zustand store (and therefore disk) only on:
+//   - onBlur of title or body textarea
+//   - tab switch (activeNoteId changes)
+//   - window blur (user switched apps)
+//   - component unmount
 
 export function NoteEditor() {
   const { activeNoteId, notes, updateNote, deleteNote, pinNote, archiveNote } = useNoteStore();
-  const note = notes.find((n) => n.id === activeNoteId);
+  const note    = notes.find((n: Note) => n.id === activeNoteId);
+  const kernel  = useKernel();
 
   const titleRef    = useRef<HTMLTextAreaElement>(null);
   const bodyRef     = useRef<HTMLTextAreaElement>(null);
-  const saveTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const draft       = useRef<{ title?: string; body?: string }>({});
+  const draftNoteId = useRef<string | null>(null);
 
-  // ── Auto-save ──────────────────────────────────────────────────────────────
+  // ── Flush draft → store → emit sync event ────────────────────────────────
+  // Called only on blur / tab switch / window blur. Zero timers.
 
-  const scheduleUpdate = useCallback(
-    (patch: Parameters<typeof updateNote>[1]) => {
-      if (!activeNoteId) return;
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => {
-        updateNote(activeNoteId, patch);
-      }, AUTO_SAVE_DELAY);
-    },
-    [activeNoteId, updateNote]
-  );
+  const flush = useCallback(() => {
+    const id = draftNoteId.current;
+    if (!id || Object.keys(draft.current).length === 0) return;
+    updateNote(id, draft.current);
+    draft.current = {};
+    // Tell the sync service to write this note to disk NOW
+    kernel.events.emit(SYNC_EVENTS.NOTE_FLUSHED, { id });
+  }, [updateNote, kernel]);
 
-  // Flush on unmount / note switch
+  // Flush when switching notes
   useEffect(() => {
-    return () => {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-    };
+    return () => { flush(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeNoteId]);
 
-  // Auto-resize title textarea
+  // Flush when the window loses focus (user cmd+tabs away)
+  useEffect(() => {
+    window.addEventListener("blur", flush);
+    return () => window.removeEventListener("blur", flush);
+  }, [flush]);
+
+  // Reset draft ref when note changes
+  useEffect(() => {
+    draftNoteId.current = activeNoteId;
+    draft.current = {};
+  }, [activeNoteId]);
+
+  // ── Auto-resize title ─────────────────────────────────────────────────────
+
   const autoResizeTitle = useCallback(() => {
     const el = titleRef.current;
     if (el) {
@@ -106,7 +126,7 @@ export function NoteEditor() {
 
   useEffect(autoResizeTitle, [note?.title, autoResizeTitle]);
 
-  // ── Empty state ────────────────────────────────────────────────────────────
+  // ── Empty state ───────────────────────────────────────────────────────────
 
   if (!note) {
     return (
@@ -119,10 +139,9 @@ export function NoteEditor() {
     );
   }
 
-  // ── Actions ────────────────────────────────────────────────────────────────
-
   const handleDelete = () => {
     if (confirm(`Delete "${note.title}"? This cannot be undone.`)) {
+      draft.current = {};
       deleteNote(note.id);
     }
   };
@@ -137,7 +156,7 @@ export function NoteEditor() {
         </div>
 
         <button
-          onClick={() => pinNote(note.id, !note.pinned)}
+          onClick={() => { flush(); pinNote(note.id, !note.pinned); }}
           title={note.pinned ? "Unpin" : "Pin"}
           className={clsx(
             "p-1.5 rounded transition-colors",
@@ -148,7 +167,7 @@ export function NoteEditor() {
         </button>
 
         <button
-          onClick={() => archiveNote(note.id, !note.archived)}
+          onClick={() => { flush(); archiveNote(note.id, !note.archived); }}
           title={note.archived ? "Unarchive" : "Archive"}
           className="p-1.5 rounded text-subtle hover:text-ink hover:bg-raised transition-colors"
         >
@@ -173,8 +192,9 @@ export function NoteEditor() {
           key={`title-${note.id}`}
           onChange={(e) => {
             autoResizeTitle();
-            scheduleUpdate({ title: e.target.value });
+            draft.current.title = e.target.value;
           }}
+          onBlur={() => flush()}
           rows={1}
           placeholder="Note title…"
           className={clsx(
@@ -195,7 +215,8 @@ export function NoteEditor() {
           ref={bodyRef}
           defaultValue={note.body}
           key={`body-${note.id}`}
-          onChange={(e) => scheduleUpdate({ body: e.target.value })}
+          onChange={(e) => { draft.current.body = e.target.value; }}
+          onBlur={() => flush()}
           placeholder="Start writing…"
           className={clsx(
             "w-full min-h-[60vh] resize-none bg-transparent outline-none",

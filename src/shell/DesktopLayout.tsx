@@ -2,21 +2,22 @@ import { Sidebar }    from "@/features/sidebar/components/Sidebar";
 import { TabBar }     from "@/features/tabs/components/TabBar";
 import { TabContent } from "@/features/tabs/components/TabContent";
 import { COMPONENT_REGISTRY } from "./component-registry";
+import { ErrorBoundary } from "./ErrorBoundary";
 import { isTauri } from "@/bridge";
 
 // ── Custom titlebar (Tauri only) ──────────────────────────────────────────────
+// titleBarStyle "Overlay" renders native macOS traffic lights at top-left.
+// We need pl-[68px] so content doesn't render under them.
 
 function TitleBar() {
   if (!isTauri) return null;
   return (
     <div
       data-tauri-drag-region
-      className="h-8 bg-base border-b border-border shrink-0 flex items-center px-4 select-none"
+      className="h-9 bg-base border-b border-border shrink-0 flex items-center select-none pl-[68px]"
     >
-      {/* macOS traffic lights are positioned by Tauri automatically when
-          title bar overlay is on. We just provide the drag region. */}
       <span
-        className="absolute left-1/2 -translate-x-1/2 text-2xs font-mono text-subtle"
+        className="flex-1 text-center text-2xs font-mono text-subtle pr-[68px]"
         data-tauri-drag-region
       >
         noter
@@ -39,7 +40,9 @@ export function DesktopLayout() {
         {/* Main column */}
         <div className="flex flex-col flex-1 overflow-hidden">
           <TabBar />
-          <TabContent registry={COMPONENT_REGISTRY} />
+          <ErrorBoundary>
+            <TabContent registry={COMPONENT_REGISTRY} />
+          </ErrorBoundary>
         </div>
       </div>
     </div>

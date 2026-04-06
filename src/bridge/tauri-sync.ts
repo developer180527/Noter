@@ -1,19 +1,29 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// TauriSyncService
-// When running inside Tauri, this service mirrors the in-memory Zustand note
-// store to individual JSON files on disk. It subscribes to store changes and
-// debounces writes so the disk is never hammered on every keystroke.
+// TauriSyncService — event-driven, zero timers
 //
-// In PWA mode this entire module is a no-op — isTauri is false.
+// Writes to disk only on these events:
+//   - "notes:flushed"  → editor flushed a draft (blur / tab switch / window blur)
+//   - "notes:deleted"  → note was deleted
+//   - "notes:pinned"   → pin toggled   (instant, cheap)
+//   - "notes:archived" → archive toggled (instant, cheap)
+//   - window "beforeunload" → app closing, flush everything dirty
+//
+// In PWA mode this entire module is a no-op.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { isTauri } from "@/bridge";
 import { tauriCommands, type NoteFile } from "@/bridge/tauri-commands";
 import { useNoteStore } from "@/features/notes/note.store";
 import type { Note } from "@/features/notes/types";
-import type { FeatureDefinition } from "@/core";
+import type { FeatureDefinition, EventBusInterface } from "@/core";
 
-const DEBOUNCE_MS = 1200;
+// Well-known events the editor emits after flushing its draft
+export const SYNC_EVENTS = {
+  NOTE_FLUSHED:  "notes:flushed",   // payload: { id: string }
+  NOTE_DELETED:  "notes:deleted",   // payload: { id: string }
+  NOTE_PINNED:   "notes:pinned",    // payload: { id: string }
+  NOTE_ARCHIVED: "notes:archived",  // payload: { id: string }
+} as const;
 
 function noteToFile(note: Note): NoteFile {
   return {
@@ -29,40 +39,85 @@ function noteToFile(note: Note): NoteFile {
   };
 }
 
-class TauriSync {
-  private pendingWrites = new Map<string, ReturnType<typeof setTimeout>>();
-  private knownIds      = new Set<string>();
-  private unsub?: () => void;
+function getNoteById(id: string): Note | undefined {
+  return useNoteStore.getState().notes.find((n: Note) => n.id === id);
+}
 
-  async start() {
+async function writeToDisk(id: string): Promise<void> {
+  const note = getNoteById(id);
+  if (!note) return;
+  await tauriCommands.writeNote(noteToFile(note));
+}
+
+async function deleteFromDisk(id: string): Promise<void> {
+  await tauriCommands.deleteNote(id);
+}
+
+// ── Sync service ──────────────────────────────────────────────────────────────
+
+class TauriSync {
+  private unsubs: Array<() => void> = [];
+
+  async start(events: EventBusInterface) {
     if (!isTauri) return;
 
     await tauriCommands.ensureNotesDir();
-
-    // Load all notes from disk on first start
     await this.hydrate();
 
-    // Subscribe to store mutations
-    this.unsub = useNoteStore.subscribe((state, prev) => {
-      this.handleStoreChange(state.notes, prev.notes);
-    });
+    // Listen for editor flush events → write that note immediately
+    this.unsubs.push(
+      events.on<{ id: string }>(SYNC_EVENTS.NOTE_FLUSHED, ({ id }) => {
+        writeToDisk(id).catch(console.error);
+      })
+    );
+
+    // Instant writes for metadata changes
+    this.unsubs.push(
+      events.on<{ id: string }>(SYNC_EVENTS.NOTE_PINNED, ({ id }) => {
+        writeToDisk(id).catch(console.error);
+      })
+    );
+
+    this.unsubs.push(
+      events.on<{ id: string }>(SYNC_EVENTS.NOTE_ARCHIVED, ({ id }) => {
+        writeToDisk(id).catch(console.error);
+      })
+    );
+
+    // Delete from disk
+    this.unsubs.push(
+      events.on<{ id: string }>(SYNC_EVENTS.NOTE_DELETED, ({ id }) => {
+        deleteFromDisk(id).catch(console.error);
+      })
+    );
+
+    // Safety net: on app close, write every note that's newer on disk
+    window.addEventListener("beforeunload", this.flushAll);
   }
 
   stop() {
-    this.unsub?.();
-    this.pendingWrites.forEach((timer) => clearTimeout(timer));
-    this.pendingWrites.clear();
+    this.unsubs.forEach((u) => u());
+    this.unsubs = [];
+    window.removeEventListener("beforeunload", this.flushAll);
   }
+
+  // Write ALL notes to disk — only called on app close as a safety net
+  private flushAll = () => {
+    const notes = useNoteStore.getState().notes;
+    for (const note of notes) {
+      // Fire-and-forget — beforeunload can't await
+      tauriCommands.writeNote(noteToFile(note)).catch(console.error);
+    }
+  };
 
   private async hydrate() {
     const ids = await tauriCommands.listNotes();
     const { notes: memNotes, createNote } = useNoteStore.getState();
-    const memIds = new Set(memNotes.map((n) => n.id));
+    const memIds = new Set(memNotes.map((n: Note) => n.id));
 
+    // Load notes from disk that aren't in memory
     for (const id of ids) {
-      this.knownIds.add(id);
       if (!memIds.has(id)) {
-        // Note exists on disk but not in memory — load it
         const file = await tauriCommands.readNote(id);
         createNote({
           title:    file.title,
@@ -74,69 +129,33 @@ class TauriSync {
       }
     }
 
-    // Write any in-memory notes that aren't on disk yet
+    // Write in-memory notes that aren't on disk yet
     for (const note of memNotes) {
       if (!ids.includes(note.id)) {
         await tauriCommands.writeNote(noteToFile(note));
-        this.knownIds.add(note.id);
       }
     }
-  }
-
-  private handleStoreChange(notes: Note[], prev: Note[]) {
-    const currentIds = new Set(notes.map((n) => n.id));
-
-    // Detect deletions
-    for (const id of [...this.knownIds]) {
-      if (!currentIds.has(id)) {
-        this.knownIds.delete(id);
-        tauriCommands.deleteNote(id).catch(console.error);
-      }
-    }
-
-    // Detect creates + updates — debounce writes
-    for (const note of notes) {
-      const prevNote = prev.find((n) => n.id === note.id);
-      if (!prevNote || prevNote.updatedAt !== note.updatedAt) {
-        this.scheduleWrite(note);
-      }
-    }
-  }
-
-  private scheduleWrite(note: Note) {
-    const existing = this.pendingWrites.get(note.id);
-    if (existing) clearTimeout(existing);
-
-    const timer = setTimeout(async () => {
-      this.pendingWrites.delete(note.id);
-      this.knownIds.add(note.id);
-      await tauriCommands.writeNote(noteToFile(note));
-    }, DEBOUNCE_MS);
-
-    this.pendingWrites.set(note.id, timer);
   }
 }
 
-// Singleton instance
 const tauriSync = new TauriSync();
 
 // ── Feature definition ────────────────────────────────────────────────────────
-// Register this as a feature so the kernel manages its lifecycle cleanly.
 
 export const tauriSyncFeature: FeatureDefinition = {
   id:           "tauri-sync",
   name:         "Tauri File Sync",
   version:      "1.0.0",
-  description:  "Syncs the note store to disk when running inside Tauri.",
+  description:  "Event-driven sync of note store → disk. Zero timers.",
   dependencies: ["notes"],
 
-  async onStart({ logger }) {
+  async onStart({ events, logger }) {
     if (!isTauri) {
       logger.info("PWA mode — file sync disabled.");
       return;
     }
-    await tauriSync.start();
-    logger.info("File sync active.");
+    await tauriSync.start(events);
+    logger.info("Event-driven file sync active.");
   },
 
   async onStop({ logger }) {

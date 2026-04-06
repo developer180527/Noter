@@ -3,7 +3,8 @@ import { Search, Plus, Pin, Tag, Archive } from "lucide-react";
 import { clsx } from "clsx";
 import { formatDistanceToNow } from "date-fns";
 import { useNoteStore } from "../note.store";
-import type { Note } from "../types";
+import { filterNotes, extractTags } from "../note.store";
+import type { Note, NoteStore } from "../types";
 
 // ── Note Card ─────────────────────────────────────────────────────────────────
 
@@ -61,15 +62,15 @@ function NoteCard({ note, isActive }: { note: Note; isActive: boolean }) {
 // ── Note List ─────────────────────────────────────────────────────────────────
 
 export function NoteList() {
-  const { activeNoteId, filter, setFilter, createNote, allTags } = useNoteStore();
-  const notes = useNoteStore((s) => s.filteredNotes());
+  const { activeNoteId, filter, setFilter, createNote } = useNoteStore();
+  const rawNotes = useNoteStore((s: NoteStore) => s.notes);
+  const notes = filterNotes(rawNotes, filter);
+  const tags  = extractTags(rawNotes);
   const [showTags, setShowTags] = useState(false);
 
   const handleCreate = useCallback(() => {
     createNote();
   }, [createNote]);
-
-  const tags = allTags();
 
   return (
     <div className="flex flex-col h-full bg-surface border-r border-border w-64 shrink-0">
