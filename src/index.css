@@ -78,3 +78,18 @@
     overflow: hidden;
   }
 }
+
+@layer base {
+  * {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Only allow selection inside editor and content areas */
+  textarea,
+  input,
+  [data-selectable] {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+}
