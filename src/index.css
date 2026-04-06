@@ -66,6 +66,10 @@
   input {
     font-family: inherit;
   }
+
+  h1, h2, h3, h4 {
+    font-weight: 600;
+  }
 }
 
 /* ── Utility: line-clamp ─────────────────────────────────────────────────── */
@@ -76,20 +80,5 @@
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
-  }
-}
-
-@layer base {
-  * {
-    -webkit-user-select: none;
-    user-select: none;
-  }
-
-  /* Only allow selection inside editor and content areas */
-  textarea,
-  input,
-  [data-selectable] {
-    -webkit-user-select: text;
-    user-select: text;
   }
 }

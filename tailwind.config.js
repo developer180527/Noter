@@ -12,8 +12,8 @@ export default {
         border:  "#2a2a2a",
         // Text
         ink:     "#e8e0d5",
-        muted:   "#7a7370",
-        subtle:  "#4a4846",
+        muted:   "#9a9390",
+        subtle:  "#6a6866",
         // Accent
         amber:   "#d4903a",
         "amber-dim": "#8a5c1f",

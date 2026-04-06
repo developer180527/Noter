@@ -4,21 +4,13 @@ import { clsx } from "clsx";
 import { useTabStore } from "../tab.store";
 import type { Tab } from "../types";
 
-// ── Context menu ──────────────────────────────────────────────────────────────
-
 interface ContextMenu {
   tabId: string;
   x: number;
   y: number;
 }
 
-function TabContextMenu({
-  menu,
-  onClose,
-}: {
-  menu: ContextMenu;
-  onClose: () => void;
-}) {
+function TabContextMenu({ menu, onClose }: { menu: ContextMenu; onClose: () => void }) {
   const { closeTab, closeOtherTabs, closeTabsToRight, tabs } = useTabStore();
   const tab = tabs.find((t) => t.id === menu.tabId);
   if (!tab) return null;
@@ -29,9 +21,7 @@ function TabContextMenu({
       onClick={() => { action(); onClose(); }}
       className={clsx(
         "w-full text-left px-3 py-1.5 text-xs font-sans rounded-sm transition-colors",
-        danger
-          ? "text-danger hover:bg-danger/10"
-          : "text-ink/80 hover:bg-raised hover:text-ink"
+        danger ? "text-danger hover:bg-danger/10" : "text-ink/80 hover:bg-raised hover:text-ink"
       )}
     >
       {label}
@@ -40,9 +30,7 @@ function TabContextMenu({
 
   return (
     <>
-      {/* Backdrop */}
       <div className="fixed inset-0 z-40" onClick={onClose} />
-      {/* Menu */}
       <div
         style={{ left: menu.x, top: menu.y }}
         className="fixed z-50 min-w-[160px] bg-overlay border border-border rounded-md shadow-2xl p-1 animate-fade-in"
@@ -55,8 +43,6 @@ function TabContextMenu({
   );
 }
 
-// ── Single Tab pill ───────────────────────────────────────────────────────────
-
 function TabPill({ tab, isActive }: { tab: Tab; isActive: boolean }) {
   const { setActiveTab, closeTab } = useTabStore();
   const Icon = tab.icon;
@@ -65,7 +51,7 @@ function TabPill({ tab, isActive }: { tab: Tab; isActive: boolean }) {
     <button
       onClick={() => setActiveTab(tab.id)}
       className={clsx(
-        "group relative flex items-center gap-1.5 h-full px-3 text-2xs font-sans",
+        "group relative flex items-center gap-1.5 h-full px-3 text-2xs font-sans font-medium",
         "border-r border-border transition-colors duration-100 select-none shrink-0",
         "max-w-[180px] min-w-[80px]",
         isActive
@@ -74,16 +60,11 @@ function TabPill({ tab, isActive }: { tab: Tab; isActive: boolean }) {
       )}
       title={tab.title}
     >
-      {/* Active indicator line */}
       {isActive && (
         <span className="absolute top-0 left-0 right-0 h-[2px] bg-amber rounded-b-none" />
       )}
-
       {Icon && <Icon size={11} className="shrink-0 opacity-70" />}
-
       <span className="truncate flex-1 text-left leading-none">{tab.title}</span>
-
-      {/* Dirty dot or close button */}
       {tab.dirty && !isActive ? (
         <Circle size={6} className="shrink-0 fill-amber text-amber" />
       ) : tab.closeable ? (
@@ -104,8 +85,6 @@ function TabPill({ tab, isActive }: { tab: Tab; isActive: boolean }) {
   );
 }
 
-// ── TabBar ────────────────────────────────────────────────────────────────────
-
 export function TabBar() {
   const { tabs, activeTabId } = useTabStore();
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
@@ -116,26 +95,24 @@ export function TabBar() {
     setContextMenu({ tabId, x: e.clientX, y: e.clientY });
   }, []);
 
-  // Horizontal scroll on wheel
   const handleWheel = useCallback((e: React.WheelEvent) => {
     if (scrollRef.current) {
       scrollRef.current.scrollLeft += e.deltaY;
     }
   }, []);
 
-  if (tabs.length === 0) return null;
 
   return (
     <>
       <div
-        className="flex h-8 bg-base border-b border-border overflow-hidden"
+        className="flex h-9 bg-base border-b border-border overflow-hidden"
         data-tauri-drag-region
       >
-        {/* Scrollable tab list */}
+        {/* Scrollable tab list — only as wide as its tabs */}
         <div
           ref={scrollRef}
           onWheel={handleWheel}
-          className="flex flex-1 overflow-x-auto overflow-y-hidden scrollbar-none"
+          className="flex overflow-x-auto overflow-y-hidden scrollbar-none"
           style={{ scrollbarWidth: "none" }}
         >
           {tabs.map((tab) => (
@@ -148,6 +125,9 @@ export function TabBar() {
             </div>
           ))}
         </div>
+
+        {/* Empty drag region — fills remaining space, draggable */}
+        <div className="flex-1 min-w-4" data-tauri-drag-region />
       </div>
 
       {contextMenu && (

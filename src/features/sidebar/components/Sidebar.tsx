@@ -14,31 +14,16 @@ import { clsx } from "clsx";
 import { useSidebarStore, type SidebarNavItem } from "../sidebar.store";
 import { useTabStore } from "@/features/tabs/tab.store";
 
-// ── Icon resolver (keep feature-agnostic) ─────────────────────────────────────
-
 const ICON_MAP: Record<string, LucideIcon> = {
-  FileText,
-  Settings,
-  Library,
-  BookOpen,
-  Hash,
-  Inbox,
+  FileText, Settings, Library, BookOpen, Hash, Inbox,
 };
 
-function NavIcon({ name, size = 15 }: { name: string; size?: number }) {
+function NavIcon({ name, size = 14 }: { name: string; size?: number }) {
   const Icon: LucideIcon = ICON_MAP[name] ?? FileText;
   return <Icon size={size} />;
 }
 
-// ── Nav Item ──────────────────────────────────────────────────────────────────
-
-function NavItem({
-  item,
-  collapsed,
-}: {
-  item: SidebarNavItem;
-  collapsed: boolean;
-}) {
+function NavItem({ item, collapsed }: { item: SidebarNavItem; collapsed: boolean }) {
   const { activeItemId, setActiveItem } = useSidebarStore();
   const { openTab } = useTabStore();
   const isActive = activeItemId === item.id;
@@ -50,8 +35,8 @@ function NavItem({
       title:     item.label,
       component: () => null,
       props:     { _componentKey: item.componentKey },
-      closeable: item.id !== "notes", // notes tab is always pinned
-      pinned:    item.id === "notes",
+      closeable: true,
+      pinned:    false,
     });
   };
 
@@ -60,26 +45,22 @@ function NavItem({
       onClick={handleClick}
       title={collapsed ? item.label : undefined}
       className={clsx(
-        "group relative flex items-center gap-2.5 w-full rounded-md transition-all duration-100",
-        "text-left select-none",
-        collapsed ? "justify-center px-0 py-2" : "px-2.5 py-1.5",
+        "group relative flex items-center gap-2.5 w-full rounded-md transition-all duration-100 text-left select-none",
+        collapsed ? "justify-center px-0 py-3" : "px-2.5 py-1.5",
         isActive
           ? "bg-amber/10 text-amber"
-          : "text-muted hover:bg-raised hover:text-ink/80"
+          : "text-muted hover:bg-raised hover:text-ink"
       )}
     >
       {isActive && (
-        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-amber rounded-full" />
+        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-amber rounded-full" />
       )}
-
       <span className={clsx("shrink-0", isActive ? "text-amber" : "")}>
-        <NavIcon name={item.icon} size={14} />
+        <NavIcon name={item.icon} size={collapsed ? 20 : 14} />
       </span>
-
       {!collapsed && (
-        <span className="text-xs font-sans font-medium truncate flex-1">{item.label}</span>
+        <span className="text-xs font-sans font-semibold truncate flex-1">{item.label}</span>
       )}
-
       {!collapsed && item.badge != null && item.badge > 0 && (
         <span className="shrink-0 bg-amber/20 text-amber text-2xs font-mono rounded-full px-1.5 py-0.5 leading-none">
           {item.badge > 99 ? "99+" : item.badge}
@@ -88,8 +69,6 @@ function NavItem({
     </button>
   );
 }
-
-// ── Section divider ───────────────────────────────────────────────────────────
 
 function SectionLabel({ label, collapsed }: { label: string; collapsed: boolean }) {
   if (collapsed) return <div className="h-px bg-border mx-2 my-1" />;
@@ -100,8 +79,6 @@ function SectionLabel({ label, collapsed }: { label: string; collapsed: boolean 
   );
 }
 
-// ── Resize handle ─────────────────────────────────────────────────────────────
-
 function ResizeHandle() {
   const { setWidth, width } = useSidebarStore();
   const startX = useRef(0);
@@ -111,10 +88,8 @@ function ResizeHandle() {
     (e: MouseEvent) => {
       startX.current = e.clientX;
       startW.current = width;
-
       const onMove = (mv: globalThis.MouseEvent) => {
-        const delta = mv.clientX - startX.current;
-        setWidth(startW.current + delta);
+        setWidth(startW.current + mv.clientX - startX.current);
       };
       const onUp = () => {
         window.removeEventListener("mousemove", onMove);
@@ -136,12 +111,21 @@ function ResizeHandle() {
   );
 }
 
-// ── Sidebar ───────────────────────────────────────────────────────────────────
+function ToggleBtn({ collapsed, toggle }: { collapsed: boolean; toggle: () => void }) {
+  return (
+    <button
+      onClick={toggle}
+      className="p-1.5 rounded text-muted hover:text-ink hover:bg-raised transition-colors shrink-0"
+      title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+    >
+      {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={13} />}
+    </button>
+  );
+}
 
 export function Sidebar() {
   const { collapsed, toggle, width, items } = useSidebarStore();
 
-  // Group items by section
   const sections = items.reduce<Record<string, SidebarNavItem[]>>((acc, item) => {
     const key = item.section ?? "__root";
     if (!acc[key]) acc[key] = [];
@@ -151,36 +135,33 @@ export function Sidebar() {
 
   return (
     <aside
-      style={{ width: collapsed ? 48 : width }}
+      style={{ width: collapsed ? 80 : width }}
       className={clsx(
         "relative flex flex-col bg-surface border-r border-border",
         "transition-[width] duration-200 ease-out shrink-0 overflow-hidden"
       )}
     >
-      {/* Header */}
-      <div
-        className={clsx(
-          "flex items-center border-b border-border h-8 shrink-0",
-          collapsed ? "justify-center px-0" : "px-2.5 gap-2"
-        )}
-        data-tauri-drag-region
-      >
-        {!collapsed && (
-          <span className="font-serif italic text-sm text-ink/50 flex-1 select-none truncate">
-            noter
-          </span>
-        )}
-        <button
-          onClick={toggle}
-          className="p-1 rounded text-muted hover:text-ink hover:bg-raised transition-colors"
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+      {collapsed ? (
+        <>
+          <div
+            className="h-9 shrink-0 border-b border-border"
+            data-tauri-drag-region
+          />
+          <div className="flex justify-center pt-2 pb-1 shrink-0">
+            <ToggleBtn collapsed={collapsed} toggle={toggle} />
+          </div>
+        </>
+      ) : (
+        <div
+          className="h-9 shrink-0 border-b border-border flex items-center pl-[68px] pr-2"
+          data-tauri-drag-region
         >
-          {collapsed ? <PanelLeftOpen size={13} /> : <PanelLeftClose size={13} />}
-        </button>
-      </div>
+          <div className="flex-1" data-tauri-drag-region />
+          <ToggleBtn collapsed={collapsed} toggle={toggle} />
+        </div>
+      )}
 
-      {/* Nav items */}
-      <nav className={clsx("flex-1 overflow-y-auto py-2", collapsed ? "px-2" : "px-2")}>
+      <nav className="flex-1 overflow-y-auto py-2 px-2">
         {Object.entries(sections).map(([section, sectionItems]) => (
           <div key={section}>
             {section !== "__root" && (
@@ -195,7 +176,6 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* Resize handle — only when expanded */}
       {!collapsed && <ResizeHandle />}
     </aside>
   );
