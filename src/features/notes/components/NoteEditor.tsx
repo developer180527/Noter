@@ -1,18 +1,21 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// NoteEditor
+// Renders inside a fixed-width page canvas (A4, Letter, etc.).
+// Flush strategy: accumulate draft in refs, write to store only on blur /
+// tab switch / window blur. Zero timers.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useEffect, useRef, useCallback, useState } from "react";
-import {
-  Pin,
-  Archive,
-  Trash2,
-  Tag,
-  Clock,
-  X,
-} from "lucide-react";
+import { Pin, Archive, Trash2, Tag, Clock, X } from "lucide-react";
 import { clsx } from "clsx";
 import { format } from "date-fns";
 import { useNoteStore } from "../note.store";
 import { useKernel } from "@/core";
 import { SYNC_EVENTS } from "@/bridge/tauri-sync";
+import { PageCanvas, PageSizeSelector } from "./PageCanvas";
+import { ExportMenu } from "@/features/export/components/ExportMenu";
 import type { Note } from "../types";
+import type { PageSizeName } from "../page-sizes";
 
 // ── Tag input ─────────────────────────────────────────────────────────────────
 
@@ -32,15 +35,19 @@ function TagInput({ noteId, tags }: { noteId: string; tags: string[] }) {
   };
 
   return (
-    <div className="flex items-center gap-1.5 flex-wrap">
-      <Tag size={10} className="text-subtle shrink-0" />
+    <div className="flex items-center gap-1.5 flex-wrap mb-6">
+      <Tag size={10} className="text-[#9a9080] shrink-0" />
       {tags.map((tag) => (
         <span
           key={tag}
-          className="flex items-center gap-1 text-2xs font-mono text-subtle bg-overlay rounded px-1.5 py-0.5"
+          className="flex items-center gap-1 text-[11px] font-mono text-[#9a9080]
+                     bg-[#ede9e2] rounded px-1.5 py-0.5"
         >
           #{tag}
-          <button onClick={() => removeTag(tag)} className="hover:text-danger transition-colors">
+          <button
+            onClick={() => removeTag(tag)}
+            className="hover:text-red-500 transition-colors"
+          >
             <X size={8} />
           </button>
         </span>
@@ -50,83 +57,73 @@ function TagInput({ noteId, tags }: { noteId: string; tags: string[] }) {
         value={input}
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === ",") {
-            e.preventDefault();
-            addTag(input);
-          }
-          if (e.key === "Backspace" && !input && tags.length > 0) {
-            removeTag(tags[tags.length - 1]);
-          }
+          if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addTag(input); }
+          if (e.key === "Backspace" && !input && tags.length > 0) removeTag(tags[tags.length - 1]);
         }}
         onBlur={() => { if (input) addTag(input); }}
         placeholder="add tag…"
-        className="text-2xs font-mono text-subtle bg-transparent outline-none placeholder:text-subtle/40 w-16"
+        className="text-[11px] font-mono text-[#9a9080] bg-transparent outline-none
+                   placeholder:text-gray-300 w-16"
       />
     </div>
   );
 }
 
-// ── Note Editor ───────────────────────────────────────────────────────────────
-// Save strategy: keep a local draft in refs while typing.
-// Flush to Zustand store (and therefore disk) only on:
-//   - onBlur of title or body textarea
-//   - tab switch (activeNoteId changes)
-//   - window blur (user switched apps)
-//   - component unmount
+// ── NoteEditor ────────────────────────────────────────────────────────────────
 
 export function NoteEditor() {
   const { activeNoteId, notes, updateNote, deleteNote, pinNote, archiveNote } = useNoteStore();
-  const note    = notes.find((n: Note) => n.id === activeNoteId);
-  const kernel  = useKernel();
+  const note   = notes.find((n: Note) => n.id === activeNoteId);
+  const kernel = useKernel();
 
   const titleRef    = useRef<HTMLTextAreaElement>(null);
   const bodyRef     = useRef<HTMLTextAreaElement>(null);
-  const draft       = useRef<{ title?: string; body?: string }>({});
+  const draft       = useRef<Partial<Omit<Note, "id" | "createdAt">>>({});
   const draftNoteId = useRef<string | null>(null);
 
-  // ── Flush draft → store → emit sync event ────────────────────────────────
-  // Called only on blur / tab switch / window blur. Zero timers.
+  // ── Flush ──────────────────────────────────────────────────────────────────
 
   const flush = useCallback(() => {
     const id = draftNoteId.current;
     if (!id || Object.keys(draft.current).length === 0) return;
     updateNote(id, draft.current);
     draft.current = {};
-    // Tell the sync service to write this note to disk NOW
     kernel.events.emit(SYNC_EVENTS.NOTE_FLUSHED, { id });
   }, [updateNote, kernel]);
 
-  // Flush when switching notes
-  useEffect(() => {
-    return () => { flush(); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeNoteId]);
+  useEffect(() => () => { flush(); }, [activeNoteId, flush]);
 
-  // Flush when the window loses focus (user cmd+tabs away)
   useEffect(() => {
     window.addEventListener("blur", flush);
     return () => window.removeEventListener("blur", flush);
   }, [flush]);
 
-  // Reset draft ref when note changes
   useEffect(() => {
     draftNoteId.current = activeNoteId;
     draft.current = {};
   }, [activeNoteId]);
 
-  // ── Auto-resize title ─────────────────────────────────────────────────────
+  // ── Auto-resize title textarea ─────────────────────────────────────────────
 
   const autoResizeTitle = useCallback(() => {
     const el = titleRef.current;
-    if (el) {
-      el.style.height = "auto";
-      el.style.height = `${el.scrollHeight}px`;
-    }
+    if (el) { el.style.height = "auto"; el.style.height = `${el.scrollHeight}px`; }
   }, []);
 
   useEffect(autoResizeTitle, [note?.title, autoResizeTitle]);
 
-  // ── Empty state ───────────────────────────────────────────────────────────
+  // ── Page size change ───────────────────────────────────────────────────────
+
+  const handlePageSizeChange = useCallback(
+    (size: PageSizeName) => {
+      if (!activeNoteId) return;
+      updateNote(activeNoteId, { pageSize: size });
+      kernel.events.emit(SYNC_EVENTS.NOTE_FLUSHED, { id: activeNoteId });
+    },
+    [activeNoteId, updateNote, kernel]
+  );
+
+  // ── Empty state ────────────────────────────────────────────────────────────
 
   if (!note) {
     return (
@@ -146,14 +143,20 @@ export function NoteEditor() {
     }
   };
 
+  const pageSize = note.pageSize ?? "a4";
+
   return (
-    <div className="flex-1 flex flex-col bg-surface min-w-0 animate-fade-in">
-      {/* Toolbar */}
-      <div className="flex items-center gap-1 px-4 py-2 border-b border-border shrink-0">
+    <div className="flex-1 flex flex-col overflow-hidden min-w-0 animate-fade-in">
+      {/* ── Toolbar ────────────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-1 px-4 py-2 border-b border-border shrink-0 bg-surface">
         <div className="flex-1 flex items-center gap-1.5 text-2xs text-subtle font-mono">
           <Clock size={9} />
           <span>{format(note.updatedAt, "MMM d, yyyy · HH:mm")}</span>
         </div>
+
+        <PageSizeSelector value={pageSize} onChange={handlePageSizeChange} />
+
+        <div className="w-px h-3 bg-border mx-1" />
 
         <button
           onClick={() => { flush(); pinNote(note.id, !note.pinned); }}
@@ -174,6 +177,8 @@ export function NoteEditor() {
           <Archive size={13} />
         </button>
 
+        <ExportMenu note={note} />
+
         <button
           onClick={handleDelete}
           title="Delete note"
@@ -183,32 +188,27 @@ export function NoteEditor() {
         </button>
       </div>
 
-      {/* Editor body */}
-      <div className="flex-1 overflow-y-auto px-8 md:px-16 py-8 max-w-4xl mx-auto w-full">
+      {/* ── Page canvas ────────────────────────────────────────────────────── */}
+      <PageCanvas size={pageSize}>
         {/* Title */}
         <textarea
           ref={titleRef}
           defaultValue={note.title}
           key={`title-${note.id}`}
-          onChange={(e) => {
-            autoResizeTitle();
-            draft.current.title = e.target.value;
-          }}
-          onBlur={() => flush()}
+          onChange={(e) => { autoResizeTitle(); draft.current.title = e.target.value; }}
+          onBlur={flush}
           rows={1}
           placeholder="Note title…"
-          className={clsx(
-            "w-full resize-none bg-transparent outline-none",
-            "font-serif text-3xl font-light text-ink leading-snug",
-            "placeholder:text-muted/30",
-            "mb-2"
-          )}
+          className="w-full resize-none bg-transparent outline-none
+                     font-serif text-[28px] font-light text-gray-900
+                     leading-snug placeholder:text-gray-300 mb-3"
         />
 
         {/* Tags */}
-        <div className="mb-6">
-          <TagInput noteId={note.id} tags={note.tags} />
-        </div>
+        <TagInput noteId={note.id} tags={note.tags} />
+
+        {/* Divider */}
+        <div className="h-px bg-[#e0dbd2] mb-6" />
 
         {/* Body */}
         <textarea
@@ -216,15 +216,13 @@ export function NoteEditor() {
           defaultValue={note.body}
           key={`body-${note.id}`}
           onChange={(e) => { draft.current.body = e.target.value; }}
-          onBlur={() => flush()}
+          onBlur={flush}
           placeholder="Start writing…"
-          className={clsx(
-            "w-full min-h-[60vh] resize-none bg-transparent outline-none",
-            "font-serif text-base text-ink/90 leading-[1.9]",
-            "placeholder:text-muted/25"
-          )}
+          className="w-full min-h-[400px] resize-none bg-transparent outline-none
+                     font-serif text-[15px] text-gray-800 leading-[1.9]
+                     placeholder:text-gray-300"
         />
-      </div>
+      </PageCanvas>
     </div>
   );
 }

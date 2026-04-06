@@ -1,13 +1,16 @@
+import type { PageSizeName } from "./page-sizes";
+
 export interface Note {
   id: string;
   title: string;
-  body: string;           // Raw markdown / plain text
+  body: string;
   tags: string[];
   createdAt: number;
   updatedAt: number;
   pinned: boolean;
   archived: boolean;
   color?: NoteColor;
+  pageSize?: PageSizeName;
 }
 
 export type NoteColor = "none" | "amber" | "red" | "green" | "blue";

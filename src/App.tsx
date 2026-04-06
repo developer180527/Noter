@@ -19,6 +19,7 @@ import { notesFeature }    from "@/features/notes";
 import { settingsFeature } from "@/features/settings";
 import { libraryFeature }  from "@/features/library";
 import { tauriSyncFeature } from "@/bridge/tauri-sync";
+import { exportFeature }    from "@/features/export";
 
 // ── Kernel singleton ──────────────────────────────────────────────────────────
 
@@ -31,6 +32,7 @@ kernel.register(notesFeature);
 kernel.register(settingsFeature);
 kernel.register(libraryFeature);
 kernel.register(tauriSyncFeature);
+kernel.register(exportFeature);
 
 // ── App ───────────────────────────────────────────────────────────────────────
 

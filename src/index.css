@@ -82,3 +82,19 @@
     overflow: hidden;
   }
 }
+
+/* ── Print ───────────────────────────────────────────────────────────────── */
+
+@media print {
+  /* Hide all app chrome — only the print target injected by pdf.ts shows */
+  body > #root {
+    display: none !important;
+  }
+}
+
+/* ── Desk background (behind paper canvas) ───────────────────────────────── */
+
+.noter-desk {
+  background-image: radial-gradient(circle, #3a3a3a 1px, transparent 1px);
+  background-size: 20px 20px;
+}
