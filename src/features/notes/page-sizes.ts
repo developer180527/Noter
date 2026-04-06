@@ -80,3 +80,7 @@ export function contentDimensions(size: PageSizeName) {
     height: d.height - d.marginTop  - d.marginBottom,
   };
 }
+
+/** Estimated height of the first-page header (title + tags + divider).
+ *  Used to calculate how tall the body textarea is on page 1. */
+export const FIRST_PAGE_HEADER_HEIGHT = 130; // px — title ~48 + tags ~30 + divider ~20 + gaps

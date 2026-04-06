@@ -1,19 +1,11 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Markdown Exporter
-// Downloads the note body as a .md file with YAML frontmatter.
-// ─────────────────────────────────────────────────────────────────────────────
-
 import type { Note } from "@/features/notes/types";
+import { downloadTextFile } from "./download";
 
 function slugify(title: string): string {
-  return title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 60) || "note";
+  return title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "note";
 }
 
-export function exportMarkdown(note: Note): void {
+export async function exportMarkdown(note: Note): Promise<void> {
   const frontmatter = [
     "---",
     `title: "${note.title.replace(/"/g, '\\"')}"`,
@@ -21,18 +13,15 @@ export function exportMarkdown(note: Note): void {
     `updated: ${new Date(note.updatedAt).toISOString()}`,
     note.tags.length > 0 ? `tags: [${note.tags.map((t) => `"${t}"`).join(", ")}]` : null,
     note.pageSize ? `pageSize: ${note.pageSize}` : null,
+    `pages: ${note.body.split("\f").length}`,
     "---",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  ].filter(Boolean).join("\n");
 
-  const content = `${frontmatter}\n\n# ${note.title}\n\n${note.body}`;
+  const pages = note.body.split("\f");
+  const bodyWithBreaks = pages
+    .map((page, i) => i === 0 ? page : `\n\n---\n*Page ${i + 1}*\n\n${page}`)
+    .join("");
 
-  const blob = new Blob([content], { type: "text/markdown" });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
-  a.href     = url;
-  a.download = `${slugify(note.title)}.md`;
-  a.click();
-  URL.revokeObjectURL(url);
+  const content = `${frontmatter}\n\n# ${note.title}\n\n${bodyWithBreaks}`;
+  await downloadTextFile(`${slugify(note.title)}.md`, content, "text/markdown");
 }

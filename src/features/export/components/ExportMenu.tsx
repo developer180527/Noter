@@ -45,14 +45,14 @@ export function ExportMenu({ note }: ExportMenuProps) {
       label:       "Export as HTML",
       description: "Self-contained file, opens in any browser",
       icon:        Code,
-      action:      () => { exportHtml(note); setOpen(false); },
+      action:      () => { exportHtml(note).then(() => setOpen(false)); },
       divider:     true,
     },
     {
       label:       "Export as Markdown",
       description: "Plain text with YAML frontmatter",
       icon:        FileText,
-      action:      () => { exportMarkdown(note); setOpen(false); },
+      action:      () => { exportMarkdown(note).then(() => setOpen(false)); },
     },
   ];
 

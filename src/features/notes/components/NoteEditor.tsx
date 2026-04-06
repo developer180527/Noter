@@ -1,21 +1,54 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// NoteEditor
-// Renders inside a fixed-width page canvas (A4, Letter, etc.).
-// Flush strategy: accumulate draft in refs, write to store only on blur /
-// tab switch / window blur. Zero timers.
+// NoteEditor — true page separation
+//
+// Each page is a separate textarea with its own selection context.
+// Cmd+A, Delete, etc. only affect the current page.
+//
+// Data model: note.body is pages joined by \f (form feed = U+000C).
+// Pages are split on load and rejoined on flush.
+//
+// Page behaviour:
+//   - Each textarea has a fixed pixel height = page content area
+//   - When content overflows a page, overflow is pushed to the next page
+//   - Backspace at position 0 merges current page into previous
+//   - "Add page" button at the bottom manually adds a blank page
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useEffect, useRef, useCallback, useState } from "react";
-import { Pin, Archive, Trash2, Tag, Clock, X } from "lucide-react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+  useState,
+} from "react";
+import { Pin, Archive, Trash2, Tag, Clock, X, Plus, Trash } from "lucide-react";
 import { clsx } from "clsx";
 import { format } from "date-fns";
 import { useNoteStore } from "../note.store";
 import { useKernel } from "@/core";
 import { SYNC_EVENTS } from "@/bridge/tauri-sync";
-import { PageCanvas, PageSizeSelector } from "./PageCanvas";
+import { PageSizeSelector } from "./PageCanvas";
 import { ExportMenu } from "@/features/export/components/ExportMenu";
+import {
+  PAGE_SIZES,
+  contentDimensions,
+  FIRST_PAGE_HEADER_HEIGHT,
+  type PageSizeName,
+} from "../page-sizes";
 import type { Note } from "../types";
-import type { PageSizeName } from "../page-sizes";
+
+// ── Page helpers ──────────────────────────────────────────────────────────────
+
+const PAGE_SEP = "\f"; // U+000C form feed — the real page break character
+
+function splitPages(body: string): string[] {
+  const pages = body.split(PAGE_SEP);
+  return pages.length > 0 ? pages : [""];
+}
+
+function joinPages(pages: string[]): string {
+  return pages.join(PAGE_SEP);
+}
 
 // ── Tag input ─────────────────────────────────────────────────────────────────
 
@@ -30,12 +63,11 @@ function TagInput({ noteId, tags }: { noteId: string; tags: string[] }) {
     setInput("");
   };
 
-  const removeTag = (tag: string) => {
+  const removeTag = (tag: string) =>
     updateNote(noteId, { tags: tags.filter((t) => t !== tag) });
-  };
 
   return (
-    <div className="flex items-center gap-1.5 flex-wrap mb-6">
+    <div className="flex items-center gap-1.5 flex-wrap mb-4">
       <Tag size={10} className="text-[#9a9080] shrink-0" />
       {tags.map((tag) => (
         <span
@@ -44,10 +76,7 @@ function TagInput({ noteId, tags }: { noteId: string; tags: string[] }) {
                      bg-[#ede9e2] rounded px-1.5 py-0.5"
         >
           #{tag}
-          <button
-            onClick={() => removeTag(tag)}
-            className="hover:text-red-500 transition-colors"
-          >
+          <button onClick={() => removeTag(tag)} className="hover:text-red-500 transition-colors">
             <X size={8} />
           </button>
         </span>
@@ -69,6 +98,113 @@ function TagInput({ noteId, tags }: { noteId: string; tags: string[] }) {
   );
 }
 
+// ── Single page ───────────────────────────────────────────────────────────────
+
+interface PageProps {
+  index:        number;
+  total:        number;
+  content:      string;
+  bodyHeight:   number;
+  pageWidth:    number;
+  pageHeight:   number;
+  marginTop:    number;
+  marginBottom: number;
+  marginLeft:   number;
+  marginRight:  number;
+  isFirst:      boolean;
+  noteId:       string;
+  noteTags:     string[];
+  noteTitle:    string;
+  titleRef?:    React.RefObject<HTMLTextAreaElement>;
+  onTitleChange: (v: string) => void;
+  onTitleBlur:  () => void;
+  bodyRef:      (el: HTMLTextAreaElement | null) => void;
+  onChange:     (v: string) => void;
+  onKeyDown:    (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  onFocus:      () => void;
+  onBlur:       () => void;
+  onDelete:     () => void;
+  canDelete:    boolean;
+}
+
+function Page({
+  index, total, content, bodyHeight,
+  pageWidth, pageHeight, marginTop, marginBottom, marginLeft, marginRight,
+  isFirst, noteId, noteTags, noteTitle, titleRef,
+  onTitleChange, onTitleBlur,
+  bodyRef, onChange, onKeyDown, onFocus, onBlur,
+  onDelete, canDelete,
+}: PageProps) {
+  return (
+    <div className="flex flex-col items-center">
+      <div className="flex items-center gap-3 mb-2">
+        <span className="text-[10px] font-mono text-gray-500 select-none">
+          {index + 1} / {total}
+        </span>
+        {canDelete && (
+          <button
+            onClick={onDelete}
+            className="text-[10px] font-mono text-gray-400 hover:text-red-400
+                       transition-colors flex items-center gap-1"
+            title="Delete this page"
+          >
+            <Trash size={9} /> delete page
+          </button>
+        )}
+      </div>
+
+      <div
+        className="relative shadow-[0_4px_32px_rgba(0,0,0,0.35)]"
+        style={{
+          width:           pageWidth,
+          height:          pageHeight,
+          paddingTop:      marginTop,
+          paddingBottom:   marginBottom,
+          paddingLeft:     marginLeft,
+          paddingRight:    marginRight,
+          backgroundColor: "#f7f4ef",
+          overflow:        "hidden",
+        }}
+        data-page-index={index}
+      >
+        {isFirst && (
+          <>
+            <textarea
+              ref={titleRef}
+              defaultValue={noteTitle}
+              key={`title-${noteId}`}
+              onChange={(e) => onTitleChange(e.target.value)}
+              onBlur={onTitleBlur}
+              rows={1}
+              placeholder="Note title…"
+              className="w-full resize-none bg-transparent outline-none overflow-hidden
+                         font-serif text-[28px] font-light text-gray-900
+                         leading-snug placeholder:text-gray-300 mb-3"
+            />
+            <TagInput noteId={noteId} tags={noteTags} />
+            <div className="h-px bg-[#e0dbd2] mb-4" />
+          </>
+        )}
+
+        <textarea
+          ref={bodyRef}
+          defaultValue={content}
+          key={`page-${noteId}-${index}`}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={onKeyDown}
+          onFocus={onFocus}
+          onBlur={onBlur}
+          placeholder={isFirst ? "Start writing…" : ""}
+          style={{ height: bodyHeight }}
+          className="w-full resize-none bg-transparent outline-none overflow-hidden
+                     font-serif text-[15px] text-gray-800 leading-[1.9]
+                     placeholder:text-gray-300"
+        />
+      </div>
+    </div>
+  );
+}
+
 // ── NoteEditor ────────────────────────────────────────────────────────────────
 
 export function NoteEditor() {
@@ -76,15 +212,21 @@ export function NoteEditor() {
   const note   = notes.find((n: Note) => n.id === activeNoteId);
   const kernel = useKernel();
 
-  const titleRef    = useRef<HTMLTextAreaElement>(null);
-  const bodyRef     = useRef<HTMLTextAreaElement>(null);
-  const draft       = useRef<Partial<Omit<Note, "id" | "createdAt">>>({});
-  const draftNoteId = useRef<string | null>(null);
+  const [pages, setPages] = useState<string[]>(() =>
+    note ? splitPages(note.body) : [""]
+  );
 
-  // ── Flush ──────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    setPages(note ? splitPages(note.body) : [""]);
+  }, [activeNoteId]); // eslint-disable-line
+
+  const titleRef  = useRef<HTMLTextAreaElement>(null);
+  const bodyRefs  = useRef<(HTMLTextAreaElement | null)[]>([]);
+  const draft     = useRef<Partial<Omit<Note, "id" | "createdAt">>>({});
+  const draftId   = useRef<string | null>(null);
 
   const flush = useCallback(() => {
-    const id = draftNoteId.current;
+    const id = draftId.current;
     if (!id || Object.keys(draft.current).length === 0) return;
     updateNote(id, draft.current);
     draft.current = {};
@@ -92,27 +234,25 @@ export function NoteEditor() {
   }, [updateNote, kernel]);
 
   useEffect(() => () => { flush(); }, [activeNoteId, flush]);
-
   useEffect(() => {
     window.addEventListener("blur", flush);
     return () => window.removeEventListener("blur", flush);
   }, [flush]);
-
   useEffect(() => {
-    draftNoteId.current = activeNoteId;
+    draftId.current = activeNoteId;
     draft.current = {};
   }, [activeNoteId]);
 
-  // ── Auto-resize title textarea ─────────────────────────────────────────────
-
-  const autoResizeTitle = useCallback(() => {
+  const resizeTitle = useCallback(() => {
     const el = titleRef.current;
-    if (el) { el.style.height = "auto"; el.style.height = `${el.scrollHeight}px`; }
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
   }, []);
 
-  useEffect(autoResizeTitle, [note?.title, autoResizeTitle]);
-
-  // ── Page size change ───────────────────────────────────────────────────────
+  useLayoutEffect(() => {
+    resizeTitle();
+  }, [note?.id, resizeTitle]);
 
   const handlePageSizeChange = useCallback(
     (size: PageSizeName) => {
@@ -123,7 +263,104 @@ export function NoteEditor() {
     [activeNoteId, updateNote, kernel]
   );
 
-  // ── Empty state ────────────────────────────────────────────────────────────
+  const commitPages = useCallback((newPages: string[]) => {
+    setPages(newPages);
+    draft.current.body = joinPages(newPages);
+  }, []);
+
+  const handlePageChange = useCallback(
+    (index: number, value: string) => {
+      const textarea = bodyRefs.current[index];
+      const newPages = [...pages];
+      newPages[index] = value;
+
+      if (textarea && textarea.scrollHeight > textarea.clientHeight + 2) {
+        const lastBreak = value.lastIndexOf("\n");
+        if (lastBreak > 0) {
+          const fits     = value.slice(0, lastBreak);
+          const overflow = value.slice(lastBreak + 1);
+          newPages[index] = fits;
+
+          if (index + 1 < newPages.length) {
+            newPages[index + 1] = overflow
+              ? overflow + (newPages[index + 1] ? "\n" + newPages[index + 1] : "")
+              : newPages[index + 1];
+          } else {
+            newPages.push(overflow);
+          }
+
+          commitPages(newPages);
+
+          setTimeout(() => {
+            const next = bodyRefs.current[index + 1];
+            if (next) {
+              next.focus();
+              next.setSelectionRange(overflow.length, overflow.length);
+            }
+          }, 0);
+          return;
+        }
+      }
+
+      commitPages(newPages);
+    },
+    [pages, commitPages]
+  );
+
+  const handlePageKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>, index: number) => {
+      const textarea = bodyRefs.current[index];
+      if (!textarea) return;
+
+      if (
+        e.key === "Backspace" &&
+        textarea.selectionStart === 0 &&
+        textarea.selectionEnd === 0 &&
+        index > 0
+      ) {
+        e.preventDefault();
+        const newPages  = [...pages];
+        const prevLen   = newPages[index - 1].length;
+        const merged    = newPages[index - 1] + newPages[index];
+        newPages[index - 1] = merged;
+        newPages.splice(index, 1);
+        commitPages(newPages);
+        flush();
+
+        setTimeout(() => {
+          const prev = bodyRefs.current[index - 1];
+          if (prev) {
+            prev.focus();
+            prev.setSelectionRange(prevLen, prevLen);
+          }
+        }, 0);
+      }
+    },
+    [pages, commitPages, flush]
+  );
+
+  const addPage = useCallback(() => {
+    const newPages = [...pages, ""];
+    commitPages(newPages);
+    flush();
+    setTimeout(() => {
+      bodyRefs.current[newPages.length - 1]?.focus();
+    }, 50);
+  }, [pages, commitPages, flush]);
+
+  const deletePage = useCallback(
+    (index: number) => {
+      if (pages.length <= 1) return;
+      const newPages = pages.filter((_, i) => i !== index);
+      commitPages(newPages);
+      flush();
+      setTimeout(() => {
+        const target = Math.min(index, newPages.length - 1);
+        bodyRefs.current[target]?.focus();
+      }, 50);
+    },
+    [pages, commitPages, flush]
+  );
 
   if (!note) {
     return (
@@ -143,11 +380,15 @@ export function NoteEditor() {
     }
   };
 
-  const pageSize = note.pageSize ?? "a4";
+  const pageSize   = note.pageSize ?? "a4";
+  const dims       = PAGE_SIZES[pageSize];
+  const { height: contentH } = contentDimensions(pageSize);
+  const firstBodyH = contentH - FIRST_PAGE_HEADER_HEIGHT;
+  const otherBodyH = contentH;
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden min-w-0 animate-fade-in">
-      {/* ── Toolbar ────────────────────────────────────────────────────────── */}
+      {/* ── Toolbar ── */}
       <div className="flex items-center gap-1 px-4 py-2 border-b border-border shrink-0 bg-surface">
         <div className="flex-1 flex items-center gap-1.5 text-2xs text-subtle font-mono">
           <Clock size={9} />
@@ -155,7 +396,6 @@ export function NoteEditor() {
         </div>
 
         <PageSizeSelector value={pageSize} onChange={handlePageSizeChange} />
-
         <div className="w-px h-3 bg-border mx-1" />
 
         <button
@@ -168,7 +408,6 @@ export function NoteEditor() {
         >
           <Pin size={13} />
         </button>
-
         <button
           onClick={() => { flush(); archiveNote(note.id, !note.archived); }}
           title={note.archived ? "Unarchive" : "Archive"}
@@ -176,9 +415,7 @@ export function NoteEditor() {
         >
           <Archive size={13} />
         </button>
-
         <ExportMenu note={note} />
-
         <button
           onClick={handleDelete}
           title="Delete note"
@@ -188,41 +425,52 @@ export function NoteEditor() {
         </button>
       </div>
 
-      {/* ── Page canvas ────────────────────────────────────────────────────── */}
-      <PageCanvas size={pageSize}>
-        {/* Title */}
-        <textarea
-          ref={titleRef}
-          defaultValue={note.title}
-          key={`title-${note.id}`}
-          onChange={(e) => { autoResizeTitle(); draft.current.title = e.target.value; }}
-          onBlur={flush}
-          rows={1}
-          placeholder="Note title…"
-          className="w-full resize-none bg-transparent outline-none
-                     font-serif text-[28px] font-light text-gray-900
-                     leading-snug placeholder:text-gray-300 mb-3"
-        />
+      {/* ── Desk ── */}
+      <div
+        className="flex-1 overflow-y-auto px-8 py-10 noter-desk"
+        style={{ background: "#2c2c2c" }}
+      >
+        <div className="flex flex-col items-center gap-8">
+          {pages.map((content, index) => (
+            <Page
+              key={`${note.id}-page-${index}`}
+              index={index}
+              total={pages.length}
+              content={content}
+              bodyHeight={index === 0 ? firstBodyH : otherBodyH}
+              pageWidth={dims.width}
+              pageHeight={dims.height}
+              marginTop={dims.marginTop}
+              marginBottom={dims.marginBottom}
+              marginLeft={dims.marginLeft}
+              marginRight={dims.marginRight}
+              isFirst={index === 0}
+              noteId={note.id}
+              noteTags={note.tags}
+              noteTitle={note.title}
+              titleRef={index === 0 ? titleRef : undefined}
+              onTitleChange={(v) => { resizeTitle(); draft.current.title = v; }}
+              onTitleBlur={flush}
+              bodyRef={(el) => { bodyRefs.current[index] = el; }}
+              onChange={(v) => handlePageChange(index, v)}
+              onKeyDown={(e) => handlePageKeyDown(e, index)}
+              onFocus={() => { draftId.current = activeNoteId; }}
+              onBlur={flush}
+              onDelete={() => deletePage(index)}
+              canDelete={pages.length > 1 && index > 0}
+            />
+          ))}
 
-        {/* Tags */}
-        <TagInput noteId={note.id} tags={note.tags} />
-
-        {/* Divider */}
-        <div className="h-px bg-[#e0dbd2] mb-6" />
-
-        {/* Body */}
-        <textarea
-          ref={bodyRef}
-          defaultValue={note.body}
-          key={`body-${note.id}`}
-          onChange={(e) => { draft.current.body = e.target.value; }}
-          onBlur={flush}
-          placeholder="Start writing…"
-          className="w-full min-h-[400px] resize-none bg-transparent outline-none
-                     font-serif text-[15px] text-gray-800 leading-[1.9]
-                     placeholder:text-gray-300"
-        />
-      </PageCanvas>
+          <button
+            onClick={addPage}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg
+                       text-xs font-mono text-gray-400 border border-dashed border-gray-600
+                       hover:border-amber/50 hover:text-amber transition-colors"
+          >
+            <Plus size={12} /> add page
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

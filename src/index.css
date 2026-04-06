@@ -21,6 +21,21 @@
     padding: 0;
     background: #0d0d0d;
     color: #e8e0d5;
+    overflow: hidden;
+  }
+
+    /* Disable text selection everywhere */
+  * {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Re-enable only where content is actually written or read */
+  textarea,
+  input,
+  [data-selectable] {
+    -webkit-user-select: text;
+    user-select: text;
   }
 
   ::selection {
