@@ -274,31 +274,82 @@ export function NoteEditor() {
       const newPages = [...pages];
       newPages[index] = value;
 
-      if (textarea && textarea.scrollHeight > textarea.clientHeight + 2) {
-        const lastBreak = value.lastIndexOf("\n");
-        if (lastBreak > 0) {
-          const fits     = value.slice(0, lastBreak);
-          const overflow = value.slice(lastBreak + 1);
-          newPages[index] = fits;
+      if (!textarea || textarea.scrollHeight <= textarea.clientHeight + 2) {
+        // Content fits — just update
+        commitPages(newPages);
+        return;
+      }
 
-          if (index + 1 < newPages.length) {
-            newPages[index + 1] = overflow
-              ? overflow + (newPages[index + 1] ? "\n" + newPages[index + 1] : "")
-              : newPages[index + 1];
-          } else {
-            newPages.push(overflow);
-          }
+      // ── Content overflows — find exact split point ─────────────────────────
+      // Binary search for the last character position that fits in the textarea.
+      // Works for any content: long paragraphs, no-newline text, anything.
 
-          commitPages(newPages);
-          setTimeout(() => {
-            const next = bodyRefs.current[index + 1];
-            if (next) { next.focus(); next.setSelectionRange(overflow.length, overflow.length); }
-          }, 0);
-          return;
+      let lo = 0;
+      let hi = value.length;
+      let fitLength = 0;
+
+      // Temporarily allow scrolling to measure content height correctly
+      const prevOverflow = textarea.style.overflow;
+      textarea.style.overflow = "hidden";
+
+      while (lo <= hi) {
+        const mid = Math.floor((lo + hi) / 2);
+        textarea.value = value.slice(0, mid);
+        // Force reflow
+        void textarea.scrollHeight;
+
+        if (textarea.scrollHeight <= textarea.clientHeight + 2) {
+          fitLength = mid;
+          lo = mid + 1;
+        } else {
+          hi = mid - 1;
         }
       }
 
+      // Restore textarea value and overflow
+      textarea.value = value;
+      textarea.style.overflow = prevOverflow;
+
+      if (fitLength === 0) {
+        // Nothing fits — keep as is (edge case with very large single word)
+        commitPages(newPages);
+        return;
+      }
+
+      // Snap to word boundary — don't cut mid-word
+      let splitAt = fitLength;
+      const beforeSplit = value.slice(0, splitAt);
+      const lastSpace   = Math.max(
+        beforeSplit.lastIndexOf(" "),
+        beforeSplit.lastIndexOf("\n")
+      );
+      if (lastSpace > fitLength * 0.5) {
+        // Only snap to word boundary if it doesn't eat too much content
+        splitAt = lastSpace + 1;
+      }
+
+      const fits    = value.slice(0, splitAt).trimEnd();
+      const overflow = value.slice(splitAt).trimStart();
+
+      newPages[index] = fits;
+
+      if (index + 1 < newPages.length) {
+        newPages[index + 1] = overflow
+          ? overflow + (newPages[index + 1] ? "\n" + newPages[index + 1] : "")
+          : newPages[index + 1];
+      } else {
+        newPages.push(overflow);
+      }
+
       commitPages(newPages);
+
+      setTimeout(() => {
+        const next = bodyRefs.current[index + 1];
+        if (next) {
+          next.focus();
+          next.setSelectionRange(overflow.length, overflow.length);
+        }
+      }, 0);
     },
     [pages, commitPages]
   );
@@ -308,6 +359,7 @@ export function NoteEditor() {
       const textarea = bodyRefs.current[index];
       if (!textarea) return;
 
+      // ── Backspace at position 0 → merge into previous page ────────────────
       if (
         e.key === "Backspace" &&
         textarea.selectionStart === 0 &&
@@ -325,6 +377,36 @@ export function NoteEditor() {
           const prev = bodyRefs.current[index - 1];
           if (prev) { prev.focus(); prev.setSelectionRange(prevLen, prevLen); }
         }, 0);
+        return;
+      }
+
+      // ── ArrowDown / ArrowRight at end → jump to next page ─────────────────
+      // Prevents keyboard scrolling inside a full page
+      if (
+        (e.key === "ArrowDown" || (e.key === "ArrowRight" && textarea.selectionStart === textarea.value.length)) &&
+        textarea.scrollHeight > textarea.clientHeight + 2 &&
+        index + 1 < pages.length
+      ) {
+        e.preventDefault();
+        const next = bodyRefs.current[index + 1];
+        if (next) { next.focus(); next.setSelectionRange(0, 0); }
+        return;
+      }
+
+      // ── ArrowUp / ArrowLeft at start → jump to previous page ──────────────
+      if (
+        (e.key === "ArrowUp" || (e.key === "ArrowLeft" && textarea.selectionStart === 0)) &&
+        index > 0 &&
+        textarea.selectionStart === 0
+      ) {
+        e.preventDefault();
+        const prev = bodyRefs.current[index - 1];
+        if (prev) {
+          const end = prev.value.length;
+          prev.focus();
+          prev.setSelectionRange(end, end);
+        }
+        return;
       }
     },
     [pages, commitPages, flush]
