@@ -1,19 +1,3 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// NoteEditor — true page separation
-//
-// Each page is a separate textarea with its own selection context.
-// Cmd+A, Delete, etc. only affect the current page.
-//
-// Data model: note.body is pages joined by \f (form feed = U+000C).
-// Pages are split on load and rejoined on flush.
-//
-// Page behaviour:
-//   - Each textarea has a fixed pixel height = page content area
-//   - When content overflows a page, overflow is pushed to the next page
-//   - Backspace at position 0 merges current page into previous
-//   - "Add page" button at the bottom manually adds a blank page
-// ─────────────────────────────────────────────────────────────────────────────
-
 import {
   useEffect,
   useLayoutEffect,
@@ -39,7 +23,7 @@ import type { Note } from "../types";
 
 // ── Page helpers ──────────────────────────────────────────────────────────────
 
-const PAGE_SEP = "\f"; // U+000C form feed — the real page break character
+const PAGE_SEP = "\f";
 
 function splitPages(body: string): string[] {
   const pages = body.split(PAGE_SEP);
@@ -101,30 +85,30 @@ function TagInput({ noteId, tags }: { noteId: string; tags: string[] }) {
 // ── Single page ───────────────────────────────────────────────────────────────
 
 interface PageProps {
-  index:        number;
-  total:        number;
-  content:      string;
-  bodyHeight:   number;
-  pageWidth:    number;
-  pageHeight:   number;
-  marginTop:    number;
-  marginBottom: number;
-  marginLeft:   number;
-  marginRight:  number;
-  isFirst:      boolean;
-  noteId:       string;
-  noteTags:     string[];
-  noteTitle:    string;
-  titleRef?:    React.RefObject<HTMLTextAreaElement>;
+  index:         number;
+  total:         number;
+  content:       string;
+  bodyHeight:    number;
+  pageWidth:     number;
+  pageHeight:    number;
+  marginTop:     number;
+  marginBottom:  number;
+  marginLeft:    number;
+  marginRight:   number;
+  isFirst:       boolean;
+  noteId:        string;
+  noteTags:      string[];
+  noteTitle:     string;
+  titleRef?:     React.RefObject<HTMLTextAreaElement>;
   onTitleChange: (v: string) => void;
-  onTitleBlur:  () => void;
-  bodyRef:      (el: HTMLTextAreaElement | null) => void;
-  onChange:     (v: string) => void;
-  onKeyDown:    (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
-  onFocus:      () => void;
-  onBlur:       () => void;
-  onDelete:     () => void;
-  canDelete:    boolean;
+  onTitleBlur:   () => void;
+  bodyRef:       (el: HTMLTextAreaElement | null) => void;
+  onChange:      (v: string) => void;
+  onKeyDown:     (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  onFocus:       () => void;
+  onBlur:        () => void;
+  onDelete:      () => void;
+  canDelete:     boolean;
 }
 
 function Page({
@@ -146,7 +130,6 @@ function Page({
             onClick={onDelete}
             className="text-[10px] font-mono text-gray-400 hover:text-red-400
                        transition-colors flex items-center gap-1"
-            title="Delete this page"
           >
             <Trash size={9} /> delete page
           </button>
@@ -212,24 +195,37 @@ export function NoteEditor() {
   const note   = notes.find((n: Note) => n.id === activeNoteId);
   const kernel = useKernel();
 
-  const [pages, setPages] = useState<string[]>(() =>
-    note ? splitPages(note.body) : [""]
-  );
+  // ── Refs ──────────────────────────────────────────────────────────────────
+  const titleRef       = useRef<HTMLTextAreaElement>(null);
+  const bodyRefs       = useRef<(HTMLTextAreaElement | null)[]>([]);
+  const draft          = useRef<Partial<Omit<Note, "id" | "createdAt">>>({});
+  const draftId        = useRef<string | null>(null);
 
-  useEffect(() => {
-    setPages(note ? splitPages(note.body) : [""]);
-  }, [activeNoteId]); // eslint-disable-line
+  // ── Draft pages — ref-based, never stale ─────────────────────────────────
+  // Pages always come from the store unless we have in-flight edits.
+  // When activeNoteId changes, the mismatch is detected synchronously during
+  // render and the draft is cleared — so pages are ALWAYS correct on mount.
+  const draftPages     = useRef<string[] | null>(null);
+  const draftNoteIdRef = useRef<string | null>(null);
 
-  const titleRef  = useRef<HTMLTextAreaElement>(null);
-  const bodyRefs  = useRef<(HTMLTextAreaElement | null)[]>([]);
-  const draft     = useRef<Partial<Omit<Note, "id" | "createdAt">>>({});
-  const draftId   = useRef<string | null>(null);
+  // Synchronous draft invalidation — runs during render, not in an effect
+  if (draftNoteIdRef.current !== activeNoteId) {
+    draftPages.current    = null;
+    draftNoteIdRef.current = activeNoteId;
+  }
+
+  // Source of truth: draft if editing, store otherwise
+  const storePages = splitPages(note?.body ?? "");
+  const pages      = draftPages.current ?? storePages;
+
+  // ── Flush ─────────────────────────────────────────────────────────────────
 
   const flush = useCallback(() => {
     const id = draftId.current;
     if (!id || Object.keys(draft.current).length === 0) return;
     updateNote(id, draft.current);
-    draft.current = {};
+    draft.current      = {};
+    draftPages.current = null; // store is now source of truth again
     kernel.events.emit(SYNC_EVENTS.NOTE_FLUSHED, { id });
   }, [updateNote, kernel]);
 
@@ -240,8 +236,10 @@ export function NoteEditor() {
   }, [flush]);
   useEffect(() => {
     draftId.current = activeNoteId;
-    draft.current = {};
+    draft.current   = {};
   }, [activeNoteId]);
+
+  // ── Title resize ──────────────────────────────────────────────────────────
 
   const resizeTitle = useCallback(() => {
     const el = titleRef.current;
@@ -250,9 +248,9 @@ export function NoteEditor() {
     el.style.height = `${el.scrollHeight}px`;
   }, []);
 
-  useLayoutEffect(() => {
-    resizeTitle();
-  }, [note?.id, resizeTitle]);
+  useLayoutEffect(() => { resizeTitle(); }, [note?.id, resizeTitle]);
+
+  // ── Page size ─────────────────────────────────────────────────────────────
 
   const handlePageSizeChange = useCallback(
     (size: PageSizeName) => {
@@ -263,8 +261,10 @@ export function NoteEditor() {
     [activeNoteId, updateNote, kernel]
   );
 
+  // ── Page mutations ────────────────────────────────────────────────────────
+
   const commitPages = useCallback((newPages: string[]) => {
-    setPages(newPages);
+    draftPages.current = newPages;
     draft.current.body = joinPages(newPages);
   }, []);
 
@@ -290,13 +290,9 @@ export function NoteEditor() {
           }
 
           commitPages(newPages);
-
           setTimeout(() => {
             const next = bodyRefs.current[index + 1];
-            if (next) {
-              next.focus();
-              next.setSelectionRange(overflow.length, overflow.length);
-            }
+            if (next) { next.focus(); next.setSelectionRange(overflow.length, overflow.length); }
           }, 0);
           return;
         }
@@ -319,20 +315,15 @@ export function NoteEditor() {
         index > 0
       ) {
         e.preventDefault();
-        const newPages  = [...pages];
-        const prevLen   = newPages[index - 1].length;
-        const merged    = newPages[index - 1] + newPages[index];
-        newPages[index - 1] = merged;
+        const newPages = [...pages];
+        const prevLen  = newPages[index - 1].length;
+        newPages[index - 1] = newPages[index - 1] + newPages[index];
         newPages.splice(index, 1);
         commitPages(newPages);
         flush();
-
         setTimeout(() => {
           const prev = bodyRefs.current[index - 1];
-          if (prev) {
-            prev.focus();
-            prev.setSelectionRange(prevLen, prevLen);
-          }
+          if (prev) { prev.focus(); prev.setSelectionRange(prevLen, prevLen); }
         }, 0);
       }
     },
@@ -343,9 +334,7 @@ export function NoteEditor() {
     const newPages = [...pages, ""];
     commitPages(newPages);
     flush();
-    setTimeout(() => {
-      bodyRefs.current[newPages.length - 1]?.focus();
-    }, 50);
+    setTimeout(() => { bodyRefs.current[newPages.length - 1]?.focus(); }, 50);
   }, [pages, commitPages, flush]);
 
   const deletePage = useCallback(
@@ -355,12 +344,13 @@ export function NoteEditor() {
       commitPages(newPages);
       flush();
       setTimeout(() => {
-        const target = Math.min(index, newPages.length - 1);
-        bodyRefs.current[target]?.focus();
+        bodyRefs.current[Math.min(index, newPages.length - 1)]?.focus();
       }, 50);
     },
     [pages, commitPages, flush]
   );
+
+  // ── Empty state ───────────────────────────────────────────────────────────
 
   if (!note) {
     return (
@@ -380,11 +370,11 @@ export function NoteEditor() {
     }
   };
 
-  const pageSize   = note.pageSize ?? "a4";
-  const dims       = PAGE_SIZES[pageSize];
-  const { height: contentH } = contentDimensions(pageSize);
-  const firstBodyH = contentH - FIRST_PAGE_HEADER_HEIGHT;
-  const otherBodyH = contentH;
+  const pageSize              = note.pageSize ?? "a4";
+  const dims                  = PAGE_SIZES[pageSize];
+  const { height: contentH }  = contentDimensions(pageSize);
+  const firstBodyH            = contentH - FIRST_PAGE_HEADER_HEIGHT;
+  const otherBodyH            = contentH;
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden min-w-0 animate-fade-in">
@@ -394,10 +384,8 @@ export function NoteEditor() {
           <Clock size={9} />
           <span>{format(note.updatedAt, "MMM d, yyyy · HH:mm")}</span>
         </div>
-
         <PageSizeSelector value={pageSize} onChange={handlePageSizeChange} />
         <div className="w-px h-3 bg-border mx-1" />
-
         <button
           onClick={() => { flush(); pinNote(note.id, !note.pinned); }}
           title={note.pinned ? "Unpin" : "Pin"}
