@@ -21,21 +21,6 @@
     padding: 0;
     background: #0d0d0d;
     color: #e8e0d5;
-    overflow: hidden;
-  }
-
-    /* Disable text selection everywhere */
-  * {
-    -webkit-user-select: none;
-    user-select: none;
-  }
-
-  /* Re-enable only where content is actually written or read */
-  textarea,
-  input,
-  [data-selectable] {
-    -webkit-user-select: text;
-    user-select: text;
   }
 
   ::selection {
@@ -112,4 +97,179 @@
 .noter-desk {
   background-image: radial-gradient(circle, #3a3a3a 1px, transparent 1px);
   background-size: 20px 20px;
+}
+
+/* ── TipTap / ProseMirror editor styles ─────────────────────────────────────── */
+
+/* Placeholder */
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: #c8c0b0;
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+
+/* Base editor */
+.prose-noter {
+  font-family: 'Crimson Pro', Georgia, serif;
+  font-size: 16px;
+  line-height: 1.85;
+  color: #e8e0d5;
+  caret-color: #d4903a;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Headings */
+.prose-noter h1 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  margin: 1.4rem 0 0.6rem;
+  color: #f0ece5;
+}
+.prose-noter h2 {
+  font-size: 1.35rem;
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 1.2rem 0 0.5rem;
+  color: #ece8e0;
+}
+.prose-noter h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 1rem 0 0.4rem;
+  color: #e8e4dc;
+}
+
+/* Paragraph */
+.prose-noter p {
+  margin: 0;
+  min-height: 1.85em;
+  color: #d8d0c5;
+}
+
+/* Lists */
+.prose-noter ul,
+.prose-noter ol {
+  padding-left: 1.5rem;
+  margin: 0.4rem 0;
+  color: #d8d0c5;
+}
+.prose-noter li { margin: 0.15rem 0; }
+.prose-noter ul { list-style-type: disc; }
+.prose-noter ol { list-style-type: decimal; }
+
+/* Blockquote */
+.prose-noter blockquote {
+  border-left: 3px solid #d4903a;
+  margin: 0.8rem 0;
+  padding: 0.2rem 0 0.2rem 1rem;
+  color: #9a9390;
+  font-style: italic;
+}
+
+/* Code */
+.prose-noter code {
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.82em;
+  background: #252525;
+  border-radius: 3px;
+  padding: 0.1em 0.35em;
+  color: #d4903a;
+}
+.prose-noter pre {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+  padding: 0.8rem 1rem;
+  margin: 0.8rem 0;
+  overflow-x: auto;
+}
+.prose-noter pre code {
+  background: none;
+  padding: 0;
+  color: #c8c0b0;
+  font-size: 0.85em;
+}
+
+/* Highlight */
+.prose-noter mark {
+  background: rgba(212, 144, 58, 0.3);
+  border-radius: 2px;
+  padding: 0 0.1em;
+  color: inherit;
+}
+
+/* Strong / Em / decorations */
+.prose-noter strong { font-weight: 700; color: #f0ece5; }
+.prose-noter em     { font-style: italic; }
+.prose-noter s      { text-decoration: line-through; opacity: 0.5; }
+.prose-noter u      { text-decoration: underline; }
+
+/* Links */
+.prose-noter a {
+  color: #d4903a;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.prose-noter a:hover { color: #f0b060; }
+
+/* Images */
+.prose-noter img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  margin: 0.75rem 0;
+}
+.prose-noter img.ProseMirror-selectednode {
+  outline: 2px solid #d4903a;
+  outline-offset: 2px;
+}
+
+/* YouTube embeds */
+.prose-noter iframe,
+.prose-noter .noter-youtube {
+  border-radius: 8px;
+  margin: 0.75rem 0;
+  max-width: 100%;
+}
+
+/* Text alignment */
+.prose-noter [style*="text-align: center"] { text-align: center; }
+.prose-noter [style*="text-align: right"]  { text-align: right; }
+.prose-noter [style*="text-align: left"]   { text-align: left; }
+
+/* Horizontal rule */
+.prose-noter hr {
+  border: none;
+  border-top: 1px solid #2a2a2a;
+  margin: 1.2rem 0;
+}
+
+/* Remove default focus ring */
+.ProseMirror:focus { outline: none; }
+
+/* ── TipTap editor styles ─────────────────────────────────────────────────── */
+/* Placeholder for prose-noter */
+.prose-noter p.is-editor-empty:first-child::before,
+.noter-placeholder::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #4a4845;
+  pointer-events: none;
+  height: 0;
+}
+
+/* Text selection highlight */
+.prose-noter ::selection {
+  background: rgba(212, 144, 58, 0.25);
+}
+
+/* Enable text selection inside editor */
+.prose-noter,
+.prose-noter * {
+  -webkit-user-select: text;
+  user-select: text;
 }

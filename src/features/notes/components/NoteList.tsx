@@ -2,8 +2,7 @@ import { useState, useCallback } from "react";
 import { Search, Plus, Pin, Tag, Archive } from "lucide-react";
 import { clsx } from "clsx";
 import { formatDistanceToNow } from "date-fns";
-import { useNoteStore } from "../note.store";
-import { filterNotes, extractTags } from "../note.store";
+import { useNoteStore, filterNotes, extractTags, extractText } from "../note.store";
 import type { Note, NoteStore } from "../types";
 
 // ── Note Card ─────────────────────────────────────────────────────────────────
@@ -11,7 +10,10 @@ import type { Note, NoteStore } from "../types";
 function NoteCard({ note, isActive }: { note: Note; isActive: boolean }) {
   const { setActiveNote } = useNoteStore();
 
-  const excerpt = note.body.replace(/[#*`_~\[\]]/g, "").slice(0, 80).trim();
+  // Use TipTap content for excerpt if available, fall back to plain body
+  const excerpt = note.content
+    ? extractText(note.content).slice(0, 100).trim()
+    : note.body.slice(0, 100).trim();
 
   return (
     <button

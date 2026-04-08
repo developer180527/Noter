@@ -37,7 +37,6 @@ export const notesFeature: FeatureDefinition = {
       label:        "Notes",
       icon:         "FileText",
       componentKey: "notes-page",
-      section:      "Library",
     });
 
     // Handle note events

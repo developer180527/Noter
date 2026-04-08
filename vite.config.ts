@@ -2,7 +2,6 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 
-// https://vitejs.dev/config/
 export default defineConfig(async () => ({
   plugins: [react()],
   resolve: {
@@ -10,21 +9,23 @@ export default defineConfig(async () => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  // Tauri injects its own modules at runtime — never bundle them.
-  // In PWA mode the dynamic imports are guarded by `isTauri`, so they're
-  // never actually executed, but Rollup still needs to know not to resolve them.
   build: {
     rollupOptions: {
-      external: (id) => id.startsWith("@tauri-apps/"),
+      external: (id: string) => id.startsWith("@tauri-apps/"),
+      output: {
+        manualChunks(id: string) {
+          if (id.includes("@tiptap") || id.includes("prosemirror")) {
+            return "tiptap";
+          }
+        },
+      },
     },
   },
-  // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   clearScreen: false,
   server: {
     port: 1420,
     strictPort: true,
     watch: {
-      // Tell vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"],
     },
   },

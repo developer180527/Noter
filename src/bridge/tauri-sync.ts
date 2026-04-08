@@ -111,28 +111,24 @@ class TauriSync {
   };
 
   private async hydrate() {
-    const ids = await tauriCommands.listNotes();
-    const { notes: memNotes, createNote } = useNoteStore.getState();
-    const memIds = new Set(memNotes.map((n: Note) => n.id));
+    const diskIds  = await tauriCommands.listNotes();
+    const { notes: memNotes } = useNoteStore.getState();
+    const memIds   = new Set(memNotes.map((n: Note) => n.id));
 
-    // Load notes from disk that aren't in memory
-    for (const id of ids) {
+    // Notes on disk but NOT in the store were deleted by the user.
+    // Trust the store (localStorage) as source of truth — delete the orphan files.
+    for (const id of diskIds) {
       if (!memIds.has(id)) {
-        const file = await tauriCommands.readNote(id);
-        createNote({
-          title:    file.title,
-          body:     file.body,
-          tags:     file.tags,
-          pinned:   file.pinned,
-          archived: file.archived,
+        await tauriCommands.deleteNote(id).catch(() => {
+          // File may already be gone — not an error
         });
       }
     }
 
-    // Write in-memory notes that aren't on disk yet
+    // Notes in memory but NOT on disk — write them to disk now.
     for (const note of memNotes) {
-      if (!ids.includes(note.id)) {
-        await tauriCommands.writeNote(noteToFile(note));
+      if (!diskIds.includes(note.id)) {
+        await tauriCommands.writeNote(noteToFile(note)).catch(console.error);
       }
     }
   }

@@ -9,18 +9,36 @@ import type { Note, NoteFilter, NoteStore } from "./types";
 // ── Pure helpers ──────────────────────────────────────────────────────────────
 
 export function filterNotes(notes: Note[], filter: NoteFilter): Note[] {
-  return notes
+  // Deduplicate by ID first — guards against corrupted persisted state
+  const seen = new Set<string>();
+  const unique = notes.filter((n) => {
+    if (seen.has(n.id)) return false;
+    seen.add(n.id);
+    return true;
+  });
+
+  return unique
     .filter((n) => n.archived === filter.archived)
     .filter((n) => !filter.tag || n.tags.includes(filter.tag))
     .filter((n) => {
       if (!filter.search) return true;
       const q = filter.search.toLowerCase();
-      return n.title.toLowerCase().includes(q) || n.body.toLowerCase().includes(q);
+      const textContent = n.content ? extractText(n.content) : n.body;
+      return n.title.toLowerCase().includes(q) ||
+             textContent.toLowerCase().includes(q) ||
+             n.body.toLowerCase().includes(q);
     })
     .sort((a, b) => {
       if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
       return b.updatedAt - a.updatedAt;
     });
+}
+
+/** Recursively extract plain text from a TipTap doc for search. */
+export function extractText(node: { type?: string; text?: string; content?: unknown[] }): string {
+  if (node.text) return node.text;
+  if (!node.content) return "";
+  return (node.content as typeof node[]).map(extractText).join(" ");
 }
 
 export function extractTags(notes: Note[]): string[] {
@@ -29,7 +47,6 @@ export function extractTags(notes: Note[]): string[] {
   return [...tags].sort();
 }
 
-// Emit a sync event via the kernel's event bus
 function emit(event: string, payload: { id: string }) {
   Kernel.getInstance().events.emit(event, payload);
 }
@@ -48,16 +65,18 @@ export const useNoteStore = create<NoteStore>()(
       } as NoteFilter,
 
       createNote(partial: Partial<Omit<Note, "id" | "createdAt" | "updatedAt">> = {}): string {
-        const id = nanoid(10);
+        const id  = nanoid(10);
         const now = Date.now();
         const note: Note = {
           id,
           title:    partial.title    ?? "Untitled",
           body:     partial.body     ?? "",
+          content:  partial.content  ?? undefined,
           tags:     partial.tags     ?? [],
           pinned:   partial.pinned   ?? false,
           archived: partial.archived ?? false,
           color:    partial.color    ?? "none",
+          pageSize: partial.pageSize,
           createdAt: now,
           updatedAt: now,
         };
@@ -65,7 +84,6 @@ export const useNoteStore = create<NoteStore>()(
           s.notes.unshift(note);
           s.activeNoteId = id;
         });
-        // New note → write to disk immediately
         emit(SYNC_EVENTS.NOTE_FLUSHED, { id });
         return id;
       },
@@ -78,7 +96,6 @@ export const useNoteStore = create<NoteStore>()(
             note.updatedAt = Date.now();
           }
         });
-        // Caller (flush) is responsible for emitting NOTE_FLUSHED after this
       },
 
       deleteNote(id: string) {
@@ -109,7 +126,9 @@ export const useNoteStore = create<NoteStore>()(
           const n = s.notes.find((n: Note) => n.id === id);
           if (n) { n.archived = archived; n.updatedAt = Date.now(); }
           if (s.activeNoteId === id && archived) {
-            s.activeNoteId = s.notes.find((n: Note) => !n.archived && n.id !== id)?.id ?? null;
+            s.activeNoteId = s.notes.find(
+              (n: Note) => !n.archived && n.id !== id
+            )?.id ?? null;
           }
         });
         emit(SYNC_EVENTS.NOTE_ARCHIVED, { id });
@@ -129,8 +148,20 @@ export const useNoteStore = create<NoteStore>()(
       },
     })),
     {
-      name: "noter:notes",
+      name: "noter:notes-v2",
       partialize: (s) => ({ notes: s.notes }),
+      merge: (persisted: unknown, current) => {
+        const p = persisted as { notes?: Note[] };
+        if (!p?.notes) return current;
+        // Deduplicate on load
+        const seen = new Set<string>();
+        const notes = p.notes.filter((n) => {
+          if (seen.has(n.id)) return false;
+          seen.add(n.id);
+          return true;
+        });
+        return { ...current, notes };
+      },
     }
   )
 );
