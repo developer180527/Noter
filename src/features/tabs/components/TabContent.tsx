@@ -1,19 +1,22 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// TabContent
-// Renders ALL tab components but only shows the active one.
-// This "keep-alive" pattern preserves scroll position, editor state, etc.
-// across tab switches without unmounting.
-// ─────────────────────────────────────────────────────────────────────────────
-
+import { useState, useEffect, useCallback } from "react";
 import { useTabStore } from "../tab.store";
-import type { ComponentRegistry } from "@/shell/component-registry";
+import { useKernel } from "@/core";
+import type { TabComponentProps } from "../types";
 
-interface TabContentProps {
-  registry: ComponentRegistry;
-}
-
-export function TabContent({ registry }: TabContentProps) {
+export function TabContent(_props: { registry?: Record<string, unknown> }) {
   const { tabs, activeTabId } = useTabStore();
+  const kernel = useKernel();
+  const [, setTick] = useState(0);
+  const bump = useCallback(() => setTick((n) => n + 1), []);
+
+  // Subscribe to slot registrations so we re-render when features finish booting
+  useEffect(() => {
+    // Subscribe via the SlotRegistry's listener API
+    const unsub = kernel.slots.subscribe(bump);
+    // Also bump once immediately in case slots already registered before we mounted
+    bump();
+    return unsub;
+  }, [kernel, bump]);
 
   if (tabs.length === 0) {
     return (
@@ -26,30 +29,25 @@ export function TabContent({ registry }: TabContentProps) {
     );
   }
 
+  const activeTab = tabs.find((t) => t.id === activeTabId);
+  if (!activeTab) return null;
+
+  const componentKey = (activeTab.props?._componentKey as string | undefined) ?? "";
+  const Component = (
+    componentKey ? kernel.slots.get(`page:${componentKey}`) : undefined
+  ) as React.ComponentType<TabComponentProps> | undefined;
+
+  if (!Component) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-surface">
+        <p className="text-xs text-subtle font-mono">Loading {activeTab.title}…</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex-1 relative overflow-hidden">
-      {tabs.map((tab) => {
-        // Resolve the actual component via the shell registry
-        const componentKey = (tab.props?._componentKey as string | undefined) ?? "";
-        const Component = componentKey
-          ? (registry[componentKey] ?? tab.component)
-          : tab.component;
-
-        const isActive = tab.id === activeTabId;
-
-        return (
-          <div
-            key={tab.id}
-            className="absolute inset-0"
-            style={{ display: isActive ? "flex" : "none" }}
-            aria-hidden={!isActive}
-          >
-            <div className="flex-1 overflow-auto">
-              <Component tabId={tab.id} {...tab.props} />
-            </div>
-          </div>
-        );
-      })}
+    <div className="flex-1 overflow-hidden" key={activeTab.id}>
+      <Component tabId={activeTab.id} {...activeTab.props} />
     </div>
   );
 }

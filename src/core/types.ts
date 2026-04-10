@@ -58,6 +58,21 @@ export interface FeatureDefinition<Config = unknown> {
   onError?:   (ctx: FeatureContext<Config>, error: Error) => Promise<void>;
 }
 
+// ── Slot Registry ─────────────────────────────────────────────────────────────
+// Features register React components into named slots.
+// The shell renders slots by name — no direct feature imports needed.
+
+import type { ComponentType } from "react";
+
+export interface SlotRegistry {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  register(slot: string, component: ComponentType<any>): void;
+  unregister(slot: string): void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  get(slot: string): ComponentType<any> | undefined;
+  has(slot: string): boolean;
+}
+
 // ── Feature Context ────────────────────────────────────────────────────────────
 // Injected into every lifecycle hook. Gives features access to kernel services
 // without importing the kernel directly (avoids circular dependencies).
@@ -71,6 +86,8 @@ export interface FeatureContext<Config = unknown> {
   readonly config: Config;
   /** Scoped logger that prefixes all messages with the feature id. */
   readonly logger: FeatureLogger;
+  /** UI slot registry — register components for the shell to render. */
+  readonly slots: SlotRegistry;
 }
 
 // ── Kernel Interface ──────────────────────────────────────────────────────────
@@ -86,6 +103,7 @@ export interface KernelInterface {
   restart(id: string): Promise<void>;
   disable(id: string): Promise<void>;
   readonly events: EventBusInterface;
+  readonly slots: SlotRegistry;
 }
 
 // ── Event Bus ─────────────────────────────────────────────────────────────────

@@ -4,8 +4,8 @@ import { clsx } from "clsx";
 import { format } from "date-fns";
 import { useNoteStore } from "../note.store";
 import { useKernel } from "@/core";
-import { SYNC_EVENTS } from "@/bridge/tauri-sync";
-import { ExportMenu } from "@/features/export/components/ExportMenu";
+import { SYNC_EVENTS } from "../events";
+import { KernelSlot } from "@/shell/KernelSlot";
 import { TipTapEditor, type TipTapEditorHandle } from "./TipTapEditor";
 import { getNoteContent, type TipTapDoc, type Note } from "../types";
 
@@ -154,7 +154,7 @@ export function NoteEditor() {
         >
           <Archive size={13} />
         </button>
-        <ExportMenu note={note} />
+        <KernelSlot name="editor.toolbar.export" note={note} />
         <button
           onClick={handleDelete}
           title="Delete note"

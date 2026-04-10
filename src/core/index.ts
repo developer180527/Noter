@@ -1,5 +1,6 @@
 export { Kernel } from "./kernel";
 export { EventBus } from "./event-bus";
+export { SlotRegistry } from "./slot-registry";
 export { KernelProvider, useKernel, useFeatureStatus, useKernelReady } from "./kernel.context";
 export { KernelEvents } from "./types";
 export type {
@@ -13,4 +14,5 @@ export type {
   EventHandler,
   Unsubscribe,
   KernelFeatureEvent,
+  SlotRegistry as SlotRegistryInterface,
 } from "./types";

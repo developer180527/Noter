@@ -1,5 +1,7 @@
 import type { FeatureDefinition } from "@/core";
 import { useSidebarStore, type SidebarNavItem } from "./sidebar.store";
+import { ActivityBar }    from "./components/ActivityBar";
+import { SecondaryPanel } from "./components/SecondaryPanel";
 
 export const SIDEBAR_EVENTS = {
   REGISTER_ITEM:   "sidebar:register-item",
@@ -11,11 +13,17 @@ export const sidebarFeature: FeatureDefinition = {
   id:          "sidebar",
   name:        "Sidebar",
   version:     "1.0.0",
-  description: "Collapsible navigation sidebar.",
+  description: "Activity bar and secondary panel. Registers UI into kernel slots.",
 
-  async onStart({ events, logger }) {
+  async onStart({ events, slots, logger }) {
+    // Register UI components into kernel slots.
+    // The shell renders these via <KernelSlot name="..." /> — no direct imports.
+    slots.register("sidebar.activityBar", ActivityBar);
+    slots.register("sidebar.panel",       SecondaryPanel);
+
     events.on(SIDEBAR_EVENTS.TOGGLE, () => {
-      useSidebarStore.getState().toggle();
+      const { activePanel } = useSidebarStore.getState();
+      useSidebarStore.getState().setActivePanel(activePanel ? null : "notes");
     });
 
     events.on<SidebarNavItem>(SIDEBAR_EVENTS.REGISTER_ITEM, (item) => {
@@ -26,6 +34,6 @@ export const sidebarFeature: FeatureDefinition = {
       useSidebarStore.getState().unregisterItem(id);
     });
 
-    logger.info("Sidebar ready.");
+    logger.info("Sidebar ready — slots registered.");
   },
 };

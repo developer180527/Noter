@@ -14,6 +14,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { EventBus } from "./event-bus";
+import { SlotRegistry } from "./slot-registry";
 import {
   type FeatureDefinition,
   type FeatureEntry,
@@ -51,12 +52,15 @@ export class Kernel implements KernelInterface {
   }
 
   readonly events = new EventBus();
+  readonly slots  = new SlotRegistry();
 
   private readonly registry = new Map<string, FeatureEntry<unknown>>();
   /** Tracks which features have completed onInit (runs once). */
   private readonly initialized = new Set<string>();
 
-  private constructor() {}
+  private constructor() {
+    this.slots._setEventBus(this.events);
+  }
 
   // ── Registration ──────────────────────────────────────────────────────────
 
@@ -251,6 +255,7 @@ export class Kernel implements KernelInterface {
       events: this.events,
       config: (entry.definition.config ?? {}) as C,
       logger: makeLogger(entry.definition.id),
+      slots:  this.slots,
     };
   }
 

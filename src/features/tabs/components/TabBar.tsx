@@ -1,14 +1,20 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// TabBar — full-width top strip
+// This IS the title bar. Traffic lights sit inside the ActivityBar's h-9
+// zone on the left. The tab strip starts at x=56px (activity bar width)
+// and spans the rest of the window. The empty space to the right of tabs
+// is a drag region so the window can be moved by dragging anywhere on the strip.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useRef, useState, useCallback, type MouseEvent } from "react";
 import { X, Circle } from "lucide-react";
 import { clsx } from "clsx";
 import { useTabStore } from "../tab.store";
 import type { Tab } from "../types";
 
-interface ContextMenu {
-  tabId: string;
-  x: number;
-  y: number;
-}
+// ── Context menu ──────────────────────────────────────────────────────────────
+
+interface ContextMenu { tabId: string; x: number; y: number; }
 
 function TabContextMenu({ menu, onClose }: { menu: ContextMenu; onClose: () => void }) {
   const { closeTab, closeOtherTabs, closeTabsToRight, tabs } = useTabStore();
@@ -33,7 +39,8 @@ function TabContextMenu({ menu, onClose }: { menu: ContextMenu; onClose: () => v
       <div className="fixed inset-0 z-40" onClick={onClose} />
       <div
         style={{ left: menu.x, top: menu.y }}
-        className="fixed z-50 min-w-[160px] bg-overlay border border-border rounded-md shadow-2xl p-1 animate-fade-in"
+        className="fixed z-50 min-w-[160px] bg-overlay border border-border
+                   rounded-md shadow-2xl p-1 animate-fade-in"
       >
         {tab.closeable && item("Close Tab", () => closeTab(menu.tabId))}
         {item("Close Other Tabs", () => closeOtherTabs(menu.tabId))}
@@ -42,6 +49,8 @@ function TabContextMenu({ menu, onClose }: { menu: ContextMenu; onClose: () => v
     </>
   );
 }
+
+// ── Single tab pill ───────────────────────────────────────────────────────────
 
 function TabPill({ tab, isActive }: { tab: Tab; isActive: boolean }) {
   const { setActiveTab, closeTab } = useTabStore();
@@ -61,7 +70,7 @@ function TabPill({ tab, isActive }: { tab: Tab; isActive: boolean }) {
       title={tab.title}
     >
       {isActive && (
-        <span className="absolute top-0 left-0 right-0 h-[2px] bg-amber rounded-b-none" />
+        <span className="absolute top-0 left-0 right-0 h-[2px] bg-amber" />
       )}
       {Icon && <Icon size={11} className="shrink-0 opacity-70" />}
       <span className="truncate flex-1 text-left leading-none">{tab.title}</span>
@@ -85,6 +94,8 @@ function TabPill({ tab, isActive }: { tab: Tab; isActive: boolean }) {
   );
 }
 
+// ── TabBar ────────────────────────────────────────────────────────────────────
+
 export function TabBar() {
   const { tabs, activeTabId } = useTabStore();
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
@@ -96,19 +107,16 @@ export function TabBar() {
   }, []);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollLeft += e.deltaY;
-    }
+    if (scrollRef.current) scrollRef.current.scrollLeft += e.deltaY;
   }, []);
-
 
   return (
     <>
+      {/* Full-width strip — no longer a drag region, title bar handles that */}
       <div
-        className="flex h-9 bg-base border-b border-border overflow-hidden"
-        data-tauri-drag-region
+        className="flex h-9 bg-base border-b border-border shrink-0 overflow-hidden"
       >
-        {/* Scrollable tab list — only as wide as its tabs */}
+        {/* Tabs — scrollable, only as wide as needed */}
         <div
           ref={scrollRef}
           onWheel={handleWheel}
@@ -126,8 +134,8 @@ export function TabBar() {
           ))}
         </div>
 
-        {/* Empty drag region — fills remaining space, draggable */}
-        <div className="flex-1 min-w-4" data-tauri-drag-region />
+        {/* Empty right space — not a drag region anymore */}
+        <div className="flex-1 min-w-4" />
       </div>
 
       {contextMenu && (

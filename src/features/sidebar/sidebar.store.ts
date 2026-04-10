@@ -1,27 +1,33 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Sidebar Store — VS Code style
+// The sidebar is now a fixed activity bar (icons only) + a resizable panel.
+// activePanel: which panel is open (null = all panels collapsed)
+// panelWidth:  width of the secondary panel (NoteList etc)
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 export interface SidebarNavItem {
-  id: string;
-  label: string;
-  icon: string;           // lucide icon name
-  componentKey: string;   // what to open in the tab/main area
-  badge?: number;         // notification badge
-  section?: string;       // visual grouping label
+  id:            string;
+  label:         string;
+  icon:          string;
+  componentKey:  string;
+  isPanelItem:   boolean;
+  linkedTabId?:  string;   // for panel items: the tab ID that shows this panel's content
+  badge?:        number;
 }
 
 interface SidebarState {
-  collapsed: boolean;
-  width: number;          // px, only relevant when not collapsed
-  activeItemId: string | null;
-  items: SidebarNavItem[];
+  activePanel:  string | null; // id of the open panel, null = collapsed
+  panelWidth:   number;        // secondary panel width in px
+  items:        SidebarNavItem[];
 }
 
 interface SidebarActions {
-  toggle(): void;
-  setCollapsed(val: boolean): void;
-  setWidth(w: number): void;
-  setActiveItem(id: string | null): void;
+  setActivePanel(id: string | null): void;
+  togglePanel(id: string): void;
+  setPanelWidth(w: number): void;
   registerItem(item: SidebarNavItem): void;
   unregisterItem(id: string): void;
   updateItem(id: string, patch: Partial<SidebarNavItem>): void;
@@ -32,15 +38,17 @@ export type SidebarStore = SidebarState & SidebarActions;
 export const useSidebarStore = create<SidebarStore>()(
   persist(
     (set) => ({
-      collapsed:    false,
-      width:        220,
-      activeItemId: null,
-      items:        [],
+      activePanel: "notes",   // notes panel open by default
+      panelWidth:  220,
+      items:       [],
 
-      toggle: () => set((s) => ({ collapsed: !s.collapsed })),
-      setCollapsed: (val) => set({ collapsed: val }),
-      setWidth: (w) => set({ width: Math.max(160, Math.min(400, w)) }),
-      setActiveItem: (id) => set({ activeItemId: id }),
+      setActivePanel: (id) => set({ activePanel: id }),
+
+      togglePanel: (id) =>
+        set((s) => ({ activePanel: s.activePanel === id ? null : id })),
+
+      setPanelWidth: (w) =>
+        set({ panelWidth: Math.max(180, Math.min(480, w)) }),
 
       registerItem: (item) =>
         set((s) => {
@@ -57,8 +65,11 @@ export const useSidebarStore = create<SidebarStore>()(
         })),
     }),
     {
-      name: "noter:sidebar",
-      partialize: (s) => ({ collapsed: s.collapsed, width: s.width }),
+      name: "noter:sidebar-v2",
+      partialize: (s) => ({
+        activePanel: s.activePanel,
+        panelWidth:  s.panelWidth,
+      }),
     }
   )
 );

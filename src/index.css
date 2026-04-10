@@ -21,6 +21,7 @@
     padding: 0;
     background: #0d0d0d;
     color: #e8e0d5;
+    overflow: hidden;        /* prevents any global page scroll */
   }
 
   ::selection {

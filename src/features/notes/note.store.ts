@@ -2,14 +2,12 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import { nanoid } from "nanoid";
-import { Kernel } from "@/core";
-import { SYNC_EVENTS } from "@/bridge/tauri-sync";
 import type { Note, NoteFilter, NoteStore } from "./types";
+import { SYNC_EVENTS } from "./events";
 
 // ── Pure helpers ──────────────────────────────────────────────────────────────
 
 export function filterNotes(notes: Note[], filter: NoteFilter): Note[] {
-  // Deduplicate by ID first — guards against corrupted persisted state
   const seen = new Set<string>();
   const unique = notes.filter((n) => {
     if (seen.has(n.id)) return false;
@@ -25,8 +23,7 @@ export function filterNotes(notes: Note[], filter: NoteFilter): Note[] {
       const q = filter.search.toLowerCase();
       const textContent = n.content ? extractText(n.content) : n.body;
       return n.title.toLowerCase().includes(q) ||
-             textContent.toLowerCase().includes(q) ||
-             n.body.toLowerCase().includes(q);
+             textContent.toLowerCase().includes(q);
     })
     .sort((a, b) => {
       if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
@@ -34,7 +31,6 @@ export function filterNotes(notes: Note[], filter: NoteFilter): Note[] {
     });
 }
 
-/** Recursively extract plain text from a TipTap doc for search. */
 export function extractText(node: { type?: string; text?: string; content?: unknown[] }): string {
   if (node.text) return node.text;
   if (!node.content) return "";
@@ -47,8 +43,20 @@ export function extractTags(notes: Note[]): string[] {
   return [...tags].sort();
 }
 
-function emit(event: string, payload: { id: string }) {
-  Kernel.getInstance().events.emit(event, payload);
+// ── Event emitter injection ───────────────────────────────────────────────────
+// The store never calls Kernel.getInstance() directly.
+// The notes feature injects an emitter in onStart via _initStoreEmitter().
+// This keeps the store decoupled from the kernel singleton.
+
+type StoreEmitter = (event: string, payload: Record<string, unknown>) => void;
+let _storeEmitter: StoreEmitter | null = null;
+
+export function _initStoreEmitter(emitter: StoreEmitter) {
+  _storeEmitter = emitter;
+}
+
+function emit(event: string, payload: Record<string, unknown>) {
+  _storeEmitter?.(event, payload);
 }
 
 // ── Store ─────────────────────────────────────────────────────────────────────
@@ -69,32 +77,26 @@ export const useNoteStore = create<NoteStore>()(
         const now = Date.now();
         const note: Note = {
           id,
-          title:    partial.title    ?? "Untitled",
-          body:     partial.body     ?? "",
-          content:  partial.content  ?? undefined,
-          tags:     partial.tags     ?? [],
-          pinned:   partial.pinned   ?? false,
-          archived: partial.archived ?? false,
-          color:    partial.color    ?? "none",
-          pageSize: partial.pageSize,
+          title:     partial.title    ?? "Untitled",
+          body:      partial.body     ?? "",
+          content:   partial.content  ?? undefined,
+          tags:      partial.tags     ?? [],
+          pinned:    partial.pinned   ?? false,
+          archived:  partial.archived ?? false,
+          color:     partial.color    ?? "none",
+          pageSize:  partial.pageSize,
           createdAt: now,
           updatedAt: now,
         };
-        set((s) => {
-          s.notes.unshift(note);
-          s.activeNoteId = id;
-        });
-        emit(SYNC_EVENTS.NOTE_FLUSHED, { id });
+        set((s) => { s.notes.unshift(note); s.activeNoteId = id; });
+        emit(SYNC_EVENTS.NOTE_FLUSHED, { id, note });
         return id;
       },
 
       updateNote(id: string, patch: Partial<Omit<Note, "id" | "createdAt">>) {
         set((s) => {
           const note = s.notes.find((n: Note) => n.id === id);
-          if (note) {
-            Object.assign(note, patch);
-            note.updatedAt = Date.now();
-          }
+          if (note) { Object.assign(note, patch); note.updatedAt = Date.now(); }
         });
       },
 
@@ -114,24 +116,24 @@ export const useNoteStore = create<NoteStore>()(
       },
 
       pinNote(id: string, pinned: boolean) {
+        let note: Note | undefined;
         set((s) => {
-          const n = s.notes.find((n: Note) => n.id === id);
-          if (n) { n.pinned = pinned; n.updatedAt = Date.now(); }
+          note = s.notes.find((n: Note) => n.id === id);
+          if (note) { note.pinned = pinned; note.updatedAt = Date.now(); }
         });
-        emit(SYNC_EVENTS.NOTE_PINNED, { id });
+        if (note) emit(SYNC_EVENTS.NOTE_PINNED, { id, note });
       },
 
       archiveNote(id: string, archived: boolean) {
+        let note: Note | undefined;
         set((s) => {
-          const n = s.notes.find((n: Note) => n.id === id);
-          if (n) { n.archived = archived; n.updatedAt = Date.now(); }
+          note = s.notes.find((n: Note) => n.id === id);
+          if (note) { note.archived = archived; note.updatedAt = Date.now(); }
           if (s.activeNoteId === id && archived) {
-            s.activeNoteId = s.notes.find(
-              (n: Note) => !n.archived && n.id !== id
-            )?.id ?? null;
+            s.activeNoteId = s.notes.find((n: Note) => !n.archived && n.id !== id)?.id ?? null;
           }
         });
-        emit(SYNC_EVENTS.NOTE_ARCHIVED, { id });
+        if (note) emit(SYNC_EVENTS.NOTE_ARCHIVED, { id, note });
       },
 
       setFilter(patch: Partial<NoteFilter>) {
@@ -153,7 +155,6 @@ export const useNoteStore = create<NoteStore>()(
       merge: (persisted: unknown, current) => {
         const p = persisted as { notes?: Note[] };
         if (!p?.notes) return current;
-        // Deduplicate on load
         const seen = new Set<string>();
         const notes = p.notes.filter((n) => {
           if (seen.has(n.id)) return false;

@@ -1,10 +1,12 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import { nanoid } from "nanoid";
 import type { Tab, TabStore } from "./types";
 
 export const useTabStore = create<TabStore>()(
-  immer((set, get) => ({
+  persist(
+    immer((set, get) => ({
     tabs: [],
     activeTabId: null,
 
@@ -88,5 +90,32 @@ export const useTabStore = create<TabStore>()(
         }
       });
     },
-  }))
-);
+  })),
+  {
+    name: "noter:tabs-v1",
+    partialize: (s) => ({
+      activeTabId: s.activeTabId,
+      tabs: s.tabs.map((t) => ({
+        id:        t.id,
+        title:     t.title,
+        closeable: t.closeable,
+        pinned:    t.pinned ?? false,
+        dirty:     false,
+        props:     t.props,
+        meta:      t.meta,
+      })),
+    }),
+    merge: (persisted, current) => {
+      const p = persisted;
+      if (!p || typeof p !== 'object') return current;
+      const pd = p as { tabs?: unknown[]; activeTabId?: string | null };
+      if (!pd.tabs) return current;
+      const tabs = pd.tabs.map((t) => ({
+        ...(t as object),
+        component: () => null,
+      }));
+      return { ...current, tabs: tabs, activeTabId: pd.activeTabId ?? null } as unknown as TabStore;
+    },
+  }
+));
+
