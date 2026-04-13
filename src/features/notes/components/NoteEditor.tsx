@@ -204,11 +204,12 @@ export function SingleEditor({ noteId, isSplit, onClose, panelOpen, onTogglePane
 // ── NoteEditor — main editor with collapse + split controls ───────────────────
 
 export function NoteEditor() {
-  const { activeNoteId, notes } = useNoteStore();
+  const { activeNoteId, splitNoteId, setSplitNote, notes } = useNoteStore();
   const { activePanel, setActivePanel } = useSidebarStore();
   const panelOpen = !!activePanel;
 
-  const note = notes.find((n: Note) => n.id === activeNoteId);
+  const note      = notes.find((n: Note) => n.id === activeNoteId);
+  const splitNote = notes.find((n: Note) => n.id === splitNoteId);
 
   if (!activeNoteId || !note) {
     return (
@@ -222,10 +223,19 @@ export function NoteEditor() {
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      <div className="flex flex-1 overflow-hidden">
-        <SingleEditor noteId={activeNoteId} panelOpen={panelOpen} onTogglePanel={() => setActivePanel(panelOpen ? null : "notes")} />
-      </div>
+    <div className="flex-1 flex overflow-hidden">
+      <SingleEditor
+        noteId={activeNoteId}
+        panelOpen={panelOpen}
+        onTogglePanel={() => setActivePanel(panelOpen ? null : "notes")}
+      />
+      {splitNoteId && splitNote && (
+        <SingleEditor
+          noteId={splitNoteId}
+          isSplit
+          onClose={() => setSplitNote(null)}
+        />
+      )}
     </div>
   );
 }
