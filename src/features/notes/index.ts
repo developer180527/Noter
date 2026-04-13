@@ -2,8 +2,9 @@ import type { FeatureDefinition } from "@/core";
 import { useNoteStore, _initStoreEmitter } from "./note.store";
 import { useSidebarStore } from "@/features/sidebar/sidebar.store";
 import { useTabStore } from "@/features/tabs/tab.store";
-import { NoteList } from "./components/NoteList";
-import { NotesPage } from "./components/NotesPage";
+import { NoteList }    from "./components/NoteList";
+import { NotesPage }   from "./components/NotesPage";
+import { NoteViewer }  from "./components/NoteViewer";
 import { NOTE_EVENTS, SYNC_EVENTS } from "./events";
 
 export { NOTE_EVENTS, SYNC_EVENTS };
@@ -36,8 +37,9 @@ export const notesFeature: FeatureDefinition = {
     _initStoreEmitter((event, payload) => events.emit(event, payload));
 
     // Register UI into kernel slots — zero direct shell/feature imports
-    slots.register("page:notes-page", NotesPage);
-    slots.register("notes.list",      NoteList);
+    slots.register("page:notes-page",    NotesPage);
+    slots.register("page:note-viewer",   NoteViewer);
+    slots.register("notes.list",         NoteList);
 
     // Register in activity bar via sidebar store
     useSidebarStore.getState().registerItem({
@@ -92,6 +94,7 @@ export const notesFeature: FeatureDefinition = {
 
     // Unregister slots and sidebar item
     slots.unregister("page:notes-page");
+    slots.unregister("page:note-viewer");
     slots.unregister("notes.list");
     useSidebarStore.getState().unregisterItem("notes");
   },

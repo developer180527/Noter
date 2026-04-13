@@ -69,6 +69,7 @@ export interface NoteFilter {
 export interface NoteState {
   notes:        Note[];
   activeNoteId: string | null;
+  splitNoteId:  string | null;   // second note shown side-by-side
   filter:       NoteFilter;
 }
 
@@ -77,6 +78,7 @@ export interface NoteActions {
   updateNote(id: string, patch: Partial<Omit<Note, "id" | "createdAt">>): void;
   deleteNote(id: string): void;
   setActiveNote(id: string | null): void;
+  setSplitNote(id: string | null): void;
   pinNote(id: string, pinned: boolean): void;
   archiveNote(id: string, archived: boolean): void;
   setFilter(patch: Partial<NoteFilter>): void;

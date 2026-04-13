@@ -66,6 +66,7 @@ export const useNoteStore = create<NoteStore>()(
     immer((set) => ({
       notes:        [] as Note[],
       activeNoteId: null as string | null,
+      splitNoteId:  null as string | null,
       filter: {
         search:   "",
         tag:      null,
@@ -107,12 +108,17 @@ export const useNoteStore = create<NoteStore>()(
           if (s.activeNoteId === id) {
             s.activeNoteId = (s.notes[0] as Note | undefined)?.id ?? null;
           }
+          if (s.splitNoteId === id) s.splitNoteId = null;
         });
         emit(SYNC_EVENTS.NOTE_DELETED, { id });
       },
 
       setActiveNote(id: string | null) {
         set((s) => { s.activeNoteId = id; });
+      },
+
+      setSplitNote(id: string | null) {
+        set((s) => { s.splitNoteId = id; });
       },
 
       pinNote(id: string, pinned: boolean) {

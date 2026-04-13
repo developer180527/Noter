@@ -1,23 +1,44 @@
 import { useState, useCallback } from "react";
-import { Search, Plus, Pin, Tag, Archive } from "lucide-react";
+import { Search, Plus, Pin, Tag, Archive, ExternalLink, Columns2 } from "lucide-react";
 import { clsx } from "clsx";
 import { formatDistanceToNow } from "date-fns";
 import { useNoteStore, filterNotes, extractTags, extractText } from "../note.store";
+import { useTabStore } from "@/features/tabs/tab.store";
 import type { Note, NoteStore } from "../types";
 
 // ── Note Card ─────────────────────────────────────────────────────────────────
 
 function NoteCard({ note, isActive }: { note: Note; isActive: boolean }) {
-  const { setActiveNote } = useNoteStore();
+  const { setActiveNote, setSplitNote, splitNoteId } = useNoteStore();
+  const { openTab } = useTabStore();
+  const [hovered, setHovered] = useState(false);
 
-  // Use TipTap content for excerpt if available, fall back to plain body
   const excerpt = note.content
     ? extractText(note.content).slice(0, 100).trim()
     : note.body.slice(0, 100).trim();
 
+  const openInTab = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    openTab({
+      id:        `note-${note.id}`,
+      title:     note.title || "Untitled",
+      component: () => null,
+      props:     { _componentKey: "note-viewer", noteId: note.id },
+      closeable: true,
+      pinned:    false,
+    });
+  };
+
+  const openAsSplit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSplitNote(splitNoteId === note.id ? null : note.id);
+  };
+
   return (
     <button
       onClick={() => setActiveNote(note.id)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       className={clsx(
         "w-full text-left px-3 py-2.5 border-b border-border/50 transition-colors",
         "group hover:bg-raised/70",
@@ -25,22 +46,38 @@ function NoteCard({ note, isActive }: { note: Note; isActive: boolean }) {
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <span
-          className={clsx(
-            "text-xs font-sans font-medium truncate",
-            isActive ? "text-ink" : "text-ink/80"
-          )}
-        >
+        <span className={clsx("text-xs font-sans font-medium truncate flex-1",
+          isActive ? "text-ink" : "text-ink/80")}>
           {note.pinned && <Pin size={9} className="inline mr-1 text-amber" />}
           {note.title || "Untitled"}
         </span>
-        <span className="text-2xs text-subtle font-mono shrink-0 mt-px">
-          {formatDistanceToNow(note.updatedAt, { addSuffix: false })}
-        </span>
+        {hovered ? (
+          <div className="flex items-center gap-0.5 shrink-0">
+            <span
+              onClick={openAsSplit}
+              title="Open in split view"
+              className={clsx("p-0.5 rounded transition-colors",
+                splitNoteId === note.id ? "text-amber" : "text-subtle hover:text-ink")}
+            >
+              <Columns2 size={10} />
+            </span>
+            <span
+              onClick={openInTab}
+              title="Open in new tab"
+              className="p-0.5 rounded text-subtle hover:text-ink transition-colors"
+            >
+              <ExternalLink size={10} />
+            </span>
+          </div>
+        ) : (
+          <span className="text-2xs text-subtle font-mono shrink-0 mt-px">
+            {formatDistanceToNow(note.updatedAt, { addSuffix: false })}
+          </span>
+        )}
       </div>
 
       {excerpt && (
-        <p className="text-2xs text-muted mt-0.5 line-clamp-2 font-sans leading-relaxed">
+        <p className="text-2xs text-muted mt-0.5 line-clamp-2 font-sans leading-relaxed text-left">
           {excerpt}
         </p>
       )}
@@ -48,10 +85,7 @@ function NoteCard({ note, isActive }: { note: Note; isActive: boolean }) {
       {note.tags.length > 0 && (
         <div className="flex gap-1 mt-1.5 flex-wrap">
           {note.tags.slice(0, 3).map((tag) => (
-            <span
-              key={tag}
-              className="text-2xs font-mono text-subtle bg-overlay/60 rounded px-1 py-0.5"
-            >
+            <span key={tag} className="text-2xs font-mono text-subtle bg-overlay/60 rounded px-1 py-0.5">
               #{tag}
             </span>
           ))}
