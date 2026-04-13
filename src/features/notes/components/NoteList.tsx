@@ -40,7 +40,7 @@ function NoteCard({ note, isActive }: { note: Note; isActive: boolean }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className={clsx(
-        "w-full text-left px-3 py-2.5 border-b border-border/50 transition-colors",
+        "w-full text-left px-3 py-2.5 border-b border-border transition-colors",
         "group hover:bg-raised/70",
         isActive ? "bg-raised border-l-2 border-l-amber pl-[10px]" : "border-l-2 border-l-transparent"
       )}
