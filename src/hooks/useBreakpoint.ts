@@ -1,39 +1,12 @@
-import { useState, useEffect } from "react";
+// noter is a desktop-only Tauri app.
+// Tauri enforces minWidth: 640 / minHeight: 480 at the OS level.
+// We always render the desktop layout — no mobile/tablet switching.
 
-export type Breakpoint = "mobile" | "tablet" | "desktop";
+export type Breakpoint = "desktop";
 
-// Matches Tailwind's default breakpoints
-const BREAKPOINTS = {
-  mobile:  0,
-  tablet:  640,
-  desktop: 1024,
-} as const;
+export function useBreakpoint(): Breakpoint { return "desktop"; }
 
-function resolveBreakpoint(width: number): Breakpoint {
-  if (width < BREAKPOINTS.tablet)  return "mobile";
-  if (width < BREAKPOINTS.desktop) return "tablet";
-  return "desktop";
-}
-
-export function useBreakpoint(): Breakpoint {
-  const [bp, setBp] = useState<Breakpoint>(() =>
-    resolveBreakpoint(window.innerWidth)
-  );
-
-  useEffect(() => {
-    const observer = new ResizeObserver(([entry]) => {
-      setBp(resolveBreakpoint(entry.contentRect.width));
-    });
-    observer.observe(document.documentElement);
-    return () => observer.disconnect();
-  }, []);
-
-  return bp;
-}
-
-export const useIsMobile  = () => useBreakpoint() === "mobile";
-export const useIsTablet  = () => useBreakpoint() === "tablet";
-export const useIsDesktop = () => useBreakpoint() === "desktop";
-
-/** True for any non-mobile device — tab bar is shown. */
-export const useHasTabs   = () => useBreakpoint() !== "mobile";
+export const useIsMobile  = () => false;
+export const useIsTablet  = () => false;
+export const useIsDesktop = () => true;
+export const useHasTabs   = () => true;

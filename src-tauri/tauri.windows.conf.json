@@ -3,7 +3,9 @@
     "windows": [
       {
         "decorations": false,
-        "titleBarStyle": "Visible"
+        "titleBarStyle": "Visible",
+        "minWidth": 740,
+        "minHeight": 500
       }
     ]
   }
