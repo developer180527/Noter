@@ -20,6 +20,7 @@ import { settingsFeature } from "@/features/settings";
 import { libraryFeature }  from "@/features/library";
 import { tauriSyncFeature } from "@/bridge/tauri-sync";
 import { exportFeature }    from "@/features/export";
+import { canvasFeature }    from "@/features/canvas";
 
 // ── Kernel singleton ──────────────────────────────────────────────────────────
 
@@ -33,6 +34,7 @@ kernel.register(settingsFeature);
 kernel.register(libraryFeature);
 kernel.register(tauriSyncFeature);
 kernel.register(exportFeature);
+kernel.register(canvasFeature);
 
 // ── App ───────────────────────────────────────────────────────────────────────
 

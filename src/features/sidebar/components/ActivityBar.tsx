@@ -1,11 +1,11 @@
 import { useEffect } from "react";
-import { FileText, Library, Settings, BookOpen, Hash, Inbox, type LucideIcon } from "lucide-react";
+import { FileText, Library, Settings, BookOpen, Hash, Inbox, PenLine, type LucideIcon } from "lucide-react";
 import { clsx } from "clsx";
 import { useSidebarStore, type SidebarNavItem } from "../sidebar.store";
 import { useTabStore } from "@/features/tabs/tab.store";
 
 const ICON_MAP: Record<string, LucideIcon> = {
-  FileText, Library, Settings, BookOpen, Hash, Inbox,
+  FileText, Library, Settings, BookOpen, Hash, Inbox, PenLine,
 };
 
 function ActivityItem({ item }: { item: SidebarNavItem }) {
