@@ -1,5 +1,20 @@
-import { useEffect } from "react";
-import { FileText, Library, Settings, BookOpen, Hash, Inbox, PenLine, type LucideIcon } from "lucide-react";
+// ─────────────────────────────────────────────────────────────────────────────
+// ActivityBar
+// Fixed left strip. Renders nav items from the sidebar store.
+// Performance notes:
+//   - tabMap: useMemo'd Map<id, Tab> — O(1) lookup instead of tabs.find() O(n)
+//   - kernel.getComponent(key) resolves page components from the slot registry
+//     instead of passing `component: () => null` placeholders
+// Layout order (registration order in sidebar store controls this):
+//   top section  → panel items (Notes, Canvas, Library)
+//   bottom section → tab items (Settings)
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { useEffect, useMemo } from "react";
+import {
+  FileText, Library, Settings, BookOpen, Hash, Inbox, PenLine,
+  type LucideIcon,
+} from "lucide-react";
 import { clsx } from "clsx";
 import { useSidebarStore, type SidebarNavItem } from "../sidebar.store";
 import { useTabStore } from "@/features/tabs/tab.store";
@@ -8,12 +23,20 @@ const ICON_MAP: Record<string, LucideIcon> = {
   FileText, Library, Settings, BookOpen, Hash, Inbox, PenLine,
 };
 
-function ActivityItem({ item }: { item: SidebarNavItem }) {
-  const { activePanel, setActivePanel } = useSidebarStore();
-  const { openTab, setActiveTab, tabs, activeTabId } = useTabStore();
+// ── ActivityItem ──────────────────────────────────────────────────────────────
+
+interface ActivityItemProps {
+  item:        SidebarNavItem;
+  tabMap:      Map<string, { id: string }>;
+  activeTabId: string | null;
+  activePanel: string | null;
+}
+
+function ActivityItem({ item, tabMap, activeTabId, activePanel }: ActivityItemProps) {
+  const { setActivePanel } = useSidebarStore();
+  const { openTab, setActiveTab } = useTabStore();
   const Icon = ICON_MAP[item.icon] ?? FileText;
 
-  // For panel items, the linked tab ID comes from the item itself — no hardcoding
   const tabId = item.isPanelItem
     ? (item.linkedTabId ?? "")
     : `page-${item.componentKey}`;
@@ -25,14 +48,13 @@ function ActivityItem({ item }: { item: SidebarNavItem }) {
   const handleClick = () => {
     if (item.isPanelItem) {
       setActivePanel(item.id);
-      const existing = tabs.find((t) => t.id === tabId);
-      if (existing) {
+      if (tabMap.has(tabId)) {
         setActiveTab(tabId);
       } else if (tabId) {
         openTab({
           id:        tabId,
           title:     item.label,
-          component: () => null,
+          component: () => null,   // TabContent resolves via slots at render time
           props:     { _componentKey: item.componentKey },
           closeable: true,
           pinned:    false,
@@ -40,14 +62,13 @@ function ActivityItem({ item }: { item: SidebarNavItem }) {
       }
     } else {
       setActivePanel(null);
-      const existing = tabs.find((t) => t.id === tabId);
-      if (existing) {
+      if (tabMap.has(tabId)) {
         setActiveTab(tabId);
       } else {
         openTab({
           id:        tabId,
           title:     item.label,
-          component: () => null,
+          component: () => null,   // TabContent resolves via slots at render time
           props:     { _componentKey: item.componentKey },
           closeable: true,
           pinned:    false,
@@ -85,13 +106,21 @@ function ActivityItem({ item }: { item: SidebarNavItem }) {
   );
 }
 
+// ── ActivityBar ───────────────────────────────────────────────────────────────
+
 export function ActivityBar() {
   const { items, activePanel, setActivePanel } = useSidebarStore();
-  const { activeTabId } = useTabStore();
+  const { tabs, activeTabId } = useTabStore();
 
-  // Sync activePanel when tabs change externally (user clicks tab bar directly)
+  // O(1) tab lookup — rebuilt only when tabs array reference changes
+  const tabMap = useMemo(
+    () => new Map(tabs.map((t) => [t.id, t])),
+    [tabs]
+  );
+
+  // Sync activePanel when user clicks the tab bar directly (not the activity bar)
   useEffect(() => {
-    const panelItems = items.filter((i) => i.isPanelItem);
+    const panelItems  = items.filter((i) => i.isPanelItem);
     const linkedPanel = panelItems.find((i) => i.linkedTabId === activeTabId);
     if (linkedPanel) {
       if (activePanel !== linkedPanel.id) setActivePanel(linkedPanel.id);
@@ -100,16 +129,35 @@ export function ActivityBar() {
     }
   }, [activeTabId]); // eslint-disable-line
 
-  const panelItems = items.filter((i) => i.isPanelItem);
+  const panelItems = items.filter((i) =>  i.isPanelItem);
   const tabItems   = items.filter((i) => !i.isPanelItem);
+
+  const itemProps = { tabMap, activeTabId, activePanel };
 
   return (
     <div className="flex flex-col bg-base border-r border-border shrink-0" style={{ width: 64 }}>
+      {/* Top — panel + page items (Notes, Canvas, Library in registration order) */}
       <div className="flex flex-col flex-1 pt-1">
-        {panelItems.map((item) => <ActivityItem key={item.id} item={item} />)}
+        {panelItems.map((item) => (
+          <ActivityItem key={item.id} item={item} {...itemProps} />
+        ))}
+        {/* Non-settings tab items that are not settings go here too */}
+        {tabItems
+          .filter((i) => i.id !== "settings")
+          .map((item) => (
+            <ActivityItem key={item.id} item={item} {...itemProps} />
+          ))
+        }
       </div>
+
+      {/* Bottom — Settings always pinned here */}
       <div className="flex flex-col pb-1 border-t border-border">
-        {tabItems.map((item) => <ActivityItem key={item.id} item={item} />)}
+        {tabItems
+          .filter((i) => i.id === "settings")
+          .map((item) => (
+            <ActivityItem key={item.id} item={item} {...itemProps} />
+          ))
+        }
       </div>
     </div>
   );
