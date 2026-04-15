@@ -45,8 +45,8 @@ function NoteCard({ note, isActive }: { note: Note; isActive: boolean }) {
         isActive ? "bg-raised border-l-2 border-l-amber pl-[10px]" : "border-l-2 border-l-transparent"
       )}
     >
-      <div className="flex items-start justify-between gap-2">
-        <span className={clsx("text-xs font-sans font-medium truncate flex-1",
+      <div className="flex items-start justify-between gap-1 min-w-0">
+        <span className={clsx("text-xs font-sans font-medium truncate flex-1 min-w-0",
           isActive ? "text-ink" : "text-ink/80")}>
           {note.pinned && <Pin size={9} className="inline mr-1 text-amber" />}
           {note.title || "Untitled"}
@@ -109,7 +109,7 @@ export function NoteList() {
   }, [createNote]);
 
   return (
-    <div className="flex flex-col h-full bg-surface border-r border-border w-64 shrink-0">
+    <div className="flex flex-col h-full bg-surface min-w-0 flex-1">
       {/* Toolbar */}
       <div className="flex items-center gap-1.5 px-2.5 py-2 border-b border-border shrink-0">
         <div className="relative flex-1">
