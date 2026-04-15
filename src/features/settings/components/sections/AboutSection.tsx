@@ -45,7 +45,7 @@ export function AboutSection() {
       <SettingGroup title="Links">
         <SettingRow label="GitHub" description="Source code, issues, and contributions.">
           <a
-            href="https://github.com/yourusername/noter"
+            href="https://github.com/developer180527/Noter"
             target="_blank"
             rel="noreferrer"
             className="flex items-center gap-1 text-xs font-mono text-amber hover:text-amber-glow transition-colors"

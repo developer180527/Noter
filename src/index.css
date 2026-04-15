@@ -11,6 +11,28 @@
     box-sizing: border-box;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Prevent selection of UI chrome — re-enabled on content below */
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Re-enable selection for actual content */
+  input, textarea,
+  .prose-noter,
+  .prose-noter *,
+  [data-selectable],
+  [data-selectable] *,
+  /* Settings readable content */
+  .settings-content,
+  .settings-content * {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  /* Buttons and nav items must never be selectable even if nested inside selectable zones */
+  button, [role="button"], nav, label {
+    -webkit-user-select: none !important;
+    user-select: none !important;
   }
 
   html,
