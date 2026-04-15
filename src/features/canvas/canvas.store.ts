@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { nanoid } from "nanoid";
+import { useTabStore } from "@/features/tabs/tab.store";
 
 export interface Drawing {
   id:          string;
@@ -60,6 +61,12 @@ export const useCanvasStore = create<CanvasStore>()(
             d.id === id ? { ...d, title, updatedAt: Date.now() } : d
           ),
         }));
+        // Sync the standalone tab title if this drawing is open in its own tab
+        const tabStore = useTabStore.getState();
+        const standaloneTabId = `canvas-${id}`;
+        if (tabStore.tabs.some((t) => t.id === standaloneTabId)) {
+          tabStore.updateTab(standaloneTabId, { title });
+        }
       },
 
       deleteDrawing(id) {
