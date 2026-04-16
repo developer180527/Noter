@@ -9,18 +9,21 @@ export type SettingsSection =
   | "about";
 
 export interface AppSettings {
-  // Active section in the settings sub-sidebar
   activeSection: SettingsSection;
 
   // Notes / Editor
-  autoSaveDelay:    number;   // ms
-  editorFontSize:   number;   // px
-  editorLineHeight: number;   // multiplier
+  autoSaveDelay:    number;
+  editorFontSize:   number;
+  editorLineHeight: number;
   spellCheck:       boolean;
   defaultNoteTitle: string;
 
   // Appearance
   reducedMotion: boolean;
+
+  // State persistence
+  persistWindowSize:     boolean;  // restore last window dimensions on launch
+  persistWorkflowState:  boolean;  // restore open tabs and active note on launch
 
   // Permissions
   permCrashReports:  boolean;
@@ -48,6 +51,8 @@ const DEFAULTS: AppSettings = {
   spellCheck:       true,
   defaultNoteTitle: "Untitled",
   reducedMotion:    false,
+  persistWindowSize:    true,
+  persistWorkflowState: true,
   permCrashReports:  true,
   permAnalytics:     false,
   permAutoUpdate:    true,
