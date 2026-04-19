@@ -3,6 +3,7 @@
   "identifier": "default",
   "description": "Default capabilities for noter desktop app",
   "windows": ["main"],
+
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",
@@ -18,8 +19,17 @@
     "fs:allow-remove",
     "fs:allow-mkdir",
     "fs:allow-exists",
-    "fs:scope-appdata",
+    "fs:allow-copy-file",
+    "fs:scope-appdata-recursive",
     "shell:allow-open",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        { "name": "open-folder",       "cmd": "open",     "args": [{ "validator": "\\S+" }] },
+        { "name": "open-folder-win",   "cmd": "explorer", "args": [{ "validator": "\\S+" }] },
+        { "name": "open-folder-linux", "cmd": "xdg-open", "args": [{ "validator": "\\S+" }] }
+      ]
+    },
     "clipboard-manager:allow-read-text",
     "clipboard-manager:allow-write-text",
     "dialog:allow-open",

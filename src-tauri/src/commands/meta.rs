@@ -48,7 +48,7 @@ pub async fn set_window_persist(
     // Write updated preference to disk immediately
     let saved = SavedState { geometry: geom, persist: enabled };
     if let Ok(json) = serde_json::to_string(&saved) {
-        let result = std::fs::write(&state.win_state_path, &json);
+        let _result = std::fs::write(&state.win_state_path, &json);
     }
 
     Ok(())

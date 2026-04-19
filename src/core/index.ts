@@ -16,3 +16,28 @@ export type {
   KernelFeatureEvent,
   SlotRegistry as SlotRegistryInterface,
 } from "./types";
+
+// ── Plugin system ─────────────────────────────────────────────────────────────
+export {
+  PERMISSION_LABELS,
+  SENSITIVE_PERMISSIONS,
+  validateManifest,
+  buildPluginContext,
+  PluginManager,
+  usePluginStore,
+} from "./plugin";
+export type {
+  PluginPermission,
+  PluginManifest,
+  PluginContext,
+  PluginNotesReadAPI,
+  PluginNotesWriteAPI,
+  PluginCanvasReadAPI,
+  PluginCanvasWriteAPI,
+  PluginStorageAPI,
+  PluginUIAPI,
+  PluginKeyboardAPI,
+  PluginEventsAPI,
+  LoadedPlugin,
+  PluginStatus,
+} from "./plugin";

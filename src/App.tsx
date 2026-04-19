@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Kernel, KernelProvider } from "@/core";
+import { Kernel, KernelProvider, PluginManager } from "@/core";
 import { AppShell } from "@/shell/AppShell";
 
 import { tabsFeature }      from "@/features/tabs";
@@ -11,7 +11,8 @@ import { tauriSyncFeature } from "@/bridge/tauri-sync";
 import { exportFeature }    from "@/features/export";
 import { canvasFeature }    from "@/features/canvas";
 
-const kernel = Kernel.getInstance();
+const kernel        = Kernel.getInstance();
+const pluginManager = new PluginManager(kernel, kernel.events);
 kernel.register(tabsFeature);
 kernel.register(sidebarFeature);
 kernel.register(notesFeature);
@@ -29,6 +30,15 @@ export default function App() {
     if (booted.current) return;
     booted.current = true;
     kernel.bootAll().then(() => forceUpdate((n) => n + 1));
+  }, []);
+
+  // ── Listen for plugin reload requests from PluginsSection ──────────────────
+  useEffect(() => {
+    const handler = () => {
+      pluginManager.loadAll().catch(console.warn);
+    };
+    window.addEventListener("noter:reload-plugins", handler);
+    return () => window.removeEventListener("noter:reload-plugins", handler);
   }, []);
 
   return (

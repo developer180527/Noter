@@ -155,7 +155,7 @@ pub fn run() {
                             .unwrap_or(WindowGeometry { width: 1200, height: 800, x: 0, y: 0 });
                         let state = commands::meta::SavedState { geometry: geom, persist: enabled };
                         if let Ok(json) = serde_json::to_string(&state) {
-                            let result = std::fs::write(&path_r, &json);
+                            let _result = std::fs::write(&path_r, &json);
                         }
                     }
                     _ => {}

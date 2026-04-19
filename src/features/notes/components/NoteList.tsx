@@ -109,7 +109,7 @@ export function NoteList() {
   }, [createNote]);
 
   return (
-    <div className="flex flex-col h-full bg-surface min-w-0 flex-1">
+    <div className="flex flex-col h-full bg-surface min-w-0 flex-1 border-r border-border">
       {/* Toolbar */}
       <div className="flex items-center gap-1.5 px-2.5 py-2 border-b border-border shrink-0">
         <div className="relative flex-1">

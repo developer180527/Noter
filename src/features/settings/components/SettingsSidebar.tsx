@@ -1,6 +1,6 @@
 import { clsx } from "clsx";
 import {
-  Settings, FileText, Palette, ShieldCheck, Info,
+  Settings, FileText, Palette, ShieldCheck, Info, Puzzle,
   type LucideIcon,
 } from "lucide-react";
 import { useSettingsStore, type SettingsSection } from "../settings.store";
@@ -16,6 +16,7 @@ const NAV: NavItem[] = [
   { id: "notes",       label: "Notes",       icon: FileText    },
   { id: "appearance",  label: "Appearance",  icon: Palette     },
   { id: "permissions", label: "Permissions", icon: ShieldCheck },
+  { id: "plugins",     label: "Plugins",     icon: Puzzle      },
   { id: "about",       label: "About",       icon: Info        },
 ];
 

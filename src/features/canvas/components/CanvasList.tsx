@@ -195,7 +195,7 @@ export function CanvasList() {
   const { drawings, activeDrawingId, createDrawing } = useCanvasStore();
 
   return (
-    <div className="flex flex-col h-full bg-surface w-56 shrink-0">
+    <div className="flex flex-col h-full bg-surface w-56 shrink-0 border-r border-border">
       <div className="flex items-center justify-between px-3 py-2
                       border-b border-border shrink-0">
         <span className="text-2xs font-mono uppercase tracking-widest text-subtle">

@@ -4,6 +4,7 @@ import { GeneralSection }    from "./sections/GeneralSection";
 import { NotesSection }      from "./sections/NotesSection";
 import { AppearanceSection } from "./sections/AppearanceSection";
 import { PermissionsSection} from "./sections/PermissionsSection";
+import { PluginsSection }    from "./sections/PluginsSection";
 import { AboutSection }      from "./sections/AboutSection";
 import type { TabComponentProps } from "@/features/tabs/types";
 
@@ -14,6 +15,7 @@ function ActiveSection() {
     case "notes":       return <NotesSection />;
     case "appearance":  return <AppearanceSection />;
     case "permissions": return <PermissionsSection />;
+    case "plugins":     return <PluginsSection />;
     case "about":       return <AboutSection />;
     default:            return <GeneralSection />;
   }

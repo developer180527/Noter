@@ -6,6 +6,7 @@ export type SettingsSection =
   | "notes"
   | "appearance"
   | "permissions"
+  | "plugins"
   | "about";
 
 export interface AppSettings {

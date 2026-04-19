@@ -11,6 +11,9 @@
     },
     "app": {
         "withGlobalTauri": false,
+        "security": {
+            "csp": "default-src 'self' blob: asset: https://asset.localhost; script-src 'self' 'unsafe-eval' blob: asset: https://asset.localhost; style-src 'self' 'unsafe-inline' asset: https://asset.localhost; img-src 'self' asset: https://asset.localhost data: blob:; connect-src ipc: http://ipc.localhost"
+        },
         "windows": [
             {
                 "title": "noter",
@@ -20,7 +23,8 @@
                 "minHeight": 480,
                 "transparent": false,
                 "resizable": true,
-                "center": true
+                "center": true,
+                "dragDropEnabled": true
             }
         ],
         "macOSPrivateApi": false,
