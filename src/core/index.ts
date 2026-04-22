@@ -1,8 +1,8 @@
-export { Kernel } from "./kernel";
-export { EventBus } from "./event-bus";
-export { SlotRegistry } from "./slot-registry";
+export { Kernel }          from "./kernel";
+export { EventBus }        from "./event-bus";
+export { SlotRegistry }    from "./slot-registry";
 export { KernelProvider, useKernel, useFeatureStatus, useKernelReady } from "./kernel.context";
-export { KernelEvents } from "./types";
+export { KernelEvents }    from "./types";
 export type {
   FeatureDefinition,
   FeatureContext,
@@ -22,22 +22,22 @@ export {
   PERMISSION_LABELS,
   SENSITIVE_PERMISSIONS,
   validateManifest,
-  buildPluginContext,
   PluginManager,
   usePluginStore,
+  PluginBridgeHost,
+  BRIDGE_CLIENT_CODE,
 } from "./plugin";
 export type {
   PluginPermission,
   PluginManifest,
-  PluginContext,
-  PluginNotesReadAPI,
-  PluginNotesWriteAPI,
-  PluginCanvasReadAPI,
-  PluginCanvasWriteAPI,
-  PluginStorageAPI,
-  PluginUIAPI,
-  PluginKeyboardAPI,
-  PluginEventsAPI,
   LoadedPlugin,
   PluginStatus,
+  PluginCtx,
+  BridgeNotesReadAPI,
+  BridgeNotesWriteAPI,
+  BridgeCanvasReadAPI,
+  BridgeCanvasWriteAPI,
+  BridgeStorageAPI,
+  BridgeUIAPI,
+  BridgeEventsAPI,
 } from "./plugin";

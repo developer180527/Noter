@@ -12,7 +12,7 @@
     "app": {
         "withGlobalTauri": false,
         "security": {
-            "csp": "default-src 'self' blob: asset: https://asset.localhost; script-src 'self' 'unsafe-eval' blob: asset: https://asset.localhost; style-src 'self' 'unsafe-inline' asset: https://asset.localhost; img-src 'self' asset: https://asset.localhost data: blob:; connect-src ipc: http://ipc.localhost"
+            "csp": "default-src 'self' blob: asset: https://asset.localhost; script-src 'self' 'unsafe-eval' blob: asset: https://asset.localhost; style-src 'self' 'unsafe-inline' asset: https://asset.localhost; img-src 'self' asset: https://asset.localhost data: blob: https:; frame-src https://www.youtube.com https://www.youtube-nocookie.com; child-src https://www.youtube.com https://www.youtube-nocookie.com blob:"
         },
         "windows": [
             {
