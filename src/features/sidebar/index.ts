@@ -1,6 +1,6 @@
 import type { FeatureDefinition } from "@/core";
 import { useSidebarStore, type SidebarNavItem } from "./sidebar.store";
-import { ActivityBar }    from "./components/ActivityBar";
+import { ActivityBar } from "@/shell/ActivityBar";
 import { SecondaryPanel } from "./components/SecondaryPanel";
 
 export const SIDEBAR_EVENTS = {
