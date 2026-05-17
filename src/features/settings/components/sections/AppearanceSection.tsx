@@ -1,7 +1,6 @@
 import { SectionHeader, SettingGroup, SettingRow, Toggle } from "./shared";
 import { useSettingsStore }    from "../../settings.store";
-import { useActivityBarStore } from "@/shell/activityBar.store";
-import type { ActivityBarPosition } from "@/shell/activityBar.store";
+import { useActivityBarStore, type ActivityBarPosition  } from "@/shell/ActivityBar.store";
 import { PanelLeft, PanelRight, PanelBottom } from "lucide-react";
 import { clsx } from "clsx";
 

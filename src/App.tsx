@@ -10,6 +10,7 @@ import { libraryFeature }   from "@/features/library";
 import { tauriSyncFeature } from "@/bridge/tauri-sync";
 import { exportFeature }    from "@/features/export";
 import { canvasFeature }    from "@/features/canvas";
+import { calculatorFeature } from "@/features/calculator";
 
 const kernel        = Kernel.getInstance();
 const pluginManager = new PluginManager(kernel, kernel.events);
@@ -21,6 +22,7 @@ kernel.register(libraryFeature);
 kernel.register(tauriSyncFeature);
 kernel.register(exportFeature);
 kernel.register(canvasFeature);
+kernel.register(calculatorFeature);
 
 export default function App() {
   const booted = useRef(false);
