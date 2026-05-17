@@ -2,7 +2,7 @@ import {
   useEffect, useRef, useState,
   forwardRef, useImperativeHandle, useCallback, useMemo,
 } from "react";
-import { useEditor, EditorContent, NodeViewWrapper } from "@tiptap/react";
+import { useEditor, EditorContent } from "@tiptap/react";
 import { BubbleMenu }    from "@tiptap/react/menus";
 import StarterKit        from "@tiptap/starter-kit";
 import ImageExt          from "@tiptap/extension-image";
@@ -13,7 +13,7 @@ import Underline         from "@tiptap/extension-underline";
 import Highlight         from "@tiptap/extension-highlight";
 import Typography        from "@tiptap/extension-typography";
 import Link              from "@tiptap/extension-link";
-import { TextStyle } from "@tiptap/extension-text-style";
+
 import { FontFamily }    from "@tiptap/extension-font-family";
 import type { Editor }   from "@tiptap/react";
 import type { LucideIcon } from "lucide-react";
@@ -30,6 +30,7 @@ import { NoteLink }       from "../extensions/NoteLink";
 import { SyncedBlock }    from "../extensions/SyncedBlock";
 import { BlockId }        from "../extensions/BlockId";
 import { useNoteStore }   from "../note.store";
+import { CollapsibleHeadings } from "../extensions/CollapsibleHeading";
 
 // ── Handle ────────────────────────────────────────────────────────────────────
 
@@ -485,6 +486,7 @@ export const TipTapEditor = forwardRef<TipTapEditorHandle, TipTapEditorProps>(
 
     const editor = useEditor({
     extensions: [
+      CollapsibleHeadings,
       StarterKit.configure({
         heading:    { levels: [1, 2, 3] },
         codeBlock:  { HTMLAttributes: { class: "noter-code-block" } },

@@ -2,7 +2,7 @@
 // Fully offline graphing calculator powered by Plotly.js (npm bundled).
 // Evaluates math expressions using the Function constructor + Math aliases.
 
-import { useState, useEffect, useRef, useCallback, useId } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Plotly from "plotly.js-dist-min";
 import { clsx } from "clsx";
 import {
@@ -205,19 +205,6 @@ export function CalculatorPage() {
     Plotly.react(plotRef.current, traces, LAYOUT, CONFIG);
   }, [exprs]);
 
-  // ── Re-evaluate when user pans/zooms ───────────────────────────────────────
-  useEffect(() => {
-    const el = plotRef.current;
-    if (!el) return;
-
-    const handler = () => {
-      // Trigger re-render with updated range
-      setExprs((prev) => [...prev]);
-    };
-
-    el.on?.("plotly_relayout", handler);
-    return () => { el.removeAllListeners?.("plotly_relayout"); };
-  }, []);
 
   // ── Add expression ──────────────────────────────────────────────────────────
   const addExpr = useCallback((raw: string) => {
