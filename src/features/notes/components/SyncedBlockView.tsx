@@ -4,14 +4,9 @@ import { useNoteStore }     from "@/features/notes/note.store";
 import { useMemo }          from "react";
 import { ExternalLink }     from "lucide-react";
 
-// ── Text extraction from ProseMirror JSON ─────────────────────────────────────
 
-function extractText(node: any): string {
-  if (!node) return "";
-  if (node.text) return node.text;
-  if (Array.isArray(node.content)) return node.content.map(extractText).join("");
-  return "";
-}
+
+
 
 // ── Simple JSX renderer for a single ProseMirror node ────────────────────────
 

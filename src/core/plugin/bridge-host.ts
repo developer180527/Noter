@@ -77,9 +77,9 @@ function assertString(v: unknown, f: string): string {
   if (typeof v !== "string" || !v.trim()) throw new ValidationError(`'${f}' must be a non-empty string`);
   return v;
 }
-function assertOptionalString(v: unknown, f: string): string | undefined {
-  return v == null ? undefined : assertString(v, f);
-}
+// function assertOptionalString(v: unknown, f: string): string | undefined {
+//   return v == null ? undefined : assertString(v, f);
+// }
 function assertStringArray(v: unknown, f: string): string[] {
   if (!Array.isArray(v)) throw new ValidationError(`'${f}' must be an array`);
   return v.map((x, i) => assertString(x, `${f}[${i}]`));
