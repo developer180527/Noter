@@ -56,7 +56,7 @@ export function AboutSection() {
         </SettingRow>
         <SettingRow label="Website" description="Downloads, changelog, and documentation.">
           <a
-            href="https://noter.app"
+            href="https://noter-web-dr4.pages.dev"
             target="_blank"
             rel="noreferrer"
             className="flex items-center gap-1 text-xs font-mono text-amber hover:text-amber-glow transition-colors"
