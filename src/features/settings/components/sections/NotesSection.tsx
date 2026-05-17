@@ -1,13 +1,25 @@
-import { useState } from "react";
+import { useState }     from "react";
 import { SectionHeader, SettingGroup, SettingRow, Toggle, Select } from "./shared";
 import { useSettingsStore } from "../../settings.store";
+
+// ── Font options — must match FONTS in TipTapEditor.tsx ──────────────────────
+
+const FONT_OPTIONS = [
+  { label: "Default (Crimson Pro)", value: ""                                          },
+  { label: "Sans — Inter",          value: "Inter, ui-sans-serif, sans-serif"          },
+  { label: "Serif — Lora",          value: "Lora, Georgia, ui-serif, serif"            },
+  { label: "Mono — JetBrains",      value: "'JetBrains Mono', ui-monospace, monospace" },
+  { label: "Rounded — Nunito",      value: "Nunito, Poppins, sans-serif"               },
+  { label: "Slab — Roboto Slab",    value: "'Roboto Slab', 'Zilla Slab', serif"        },
+];
+
+// ── ClearDataRow ──────────────────────────────────────────────────────────────
 
 function ClearDataRow() {
   const [step, setStep] = useState<"idle" | "confirm" | "typing">("idle");
   const [input, setInput] = useState("");
 
-  const reset = () => { setStep("idle"); setInput(""); };
-
+  const reset    = () => { setStep("idle"); setInput(""); };
   const doDelete = () => {
     localStorage.removeItem("noter:notes-v2");
     localStorage.removeItem("noter:tabs-v1");
@@ -17,10 +29,8 @@ function ClearDataRow() {
   if (step === "idle") {
     return (
       <SettingRow label="Clear all notes" description="After confirmation permanently delete every note. This cannot be undone.">
-        <button
-          onClick={() => setStep("confirm")}
-          className="text-xs font-mono text-danger hover:text-danger/80 transition-colors"
-        >
+        <button onClick={() => setStep("confirm")}
+          className="text-xs font-mono text-danger hover:text-danger/80 transition-colors">
           Clear data
         </button>
       </SettingRow>
@@ -33,76 +43,52 @@ function ClearDataRow() {
         <p className="text-xs font-sans text-ink/90 font-medium">Are you sure?</p>
         <p className="text-2xs font-sans text-subtle leading-relaxed">
           This will permanently delete <span className="text-ink font-medium">all your notes</span> and
-          cannot be undone. Type{" "}
-          <span className="font-mono text-danger">DELETE</span>{" "}
-          below to confirm.
+          cannot be undone. Type <span className="font-mono text-danger">DELETE</span> below to confirm.
         </p>
-        <input
-          autoFocus
-          type="text"
-          value={input}
+        <input autoFocus type="text" value={input}
           onChange={(e) => { setInput(e.target.value); setStep("typing"); }}
           placeholder="Type DELETE to confirm"
           className="w-full text-xs font-mono text-ink bg-overlay border border-border rounded
-                     px-2 py-1.5 outline-none focus:border-danger/60 transition-colors"
-        />
+                     px-2 py-1.5 outline-none focus:border-danger/60 transition-colors" />
         <div className="flex gap-2">
-          <button
-            onClick={reset}
-            className="text-xs font-mono text-subtle hover:text-ink transition-colors"
-          >
-            Cancel
-          </button>
+          <button onClick={reset} className="text-xs font-mono text-subtle hover:text-ink transition-colors">Cancel</button>
         </div>
       </div>
     );
   }
 
-  // step === "typing"
   const ready = input.trim() === "DELETE";
   return (
     <div className="px-4 py-3 bg-danger/5 border-l-2 border-danger space-y-2.5">
       <p className="text-xs font-sans text-ink/90 font-medium">Are you sure?</p>
       <p className="text-2xs font-sans text-subtle leading-relaxed">
         This will permanently delete <span className="text-ink font-medium">all your notes</span> and
-        cannot be undone. Type{" "}
-        <span className="font-mono text-danger">DELETE</span>{" "}
-        below to confirm.
+        cannot be undone. Type <span className="font-mono text-danger">DELETE</span> below to confirm.
       </p>
-      <input
-        autoFocus
-        type="text"
-        value={input}
+      <input autoFocus type="text" value={input}
         onChange={(e) => setInput(e.target.value)}
         placeholder="Type DELETE to confirm"
-        className={`w-full text-xs font-mono text-ink bg-overlay border rounded
-                   px-2 py-1.5 outline-none transition-colors
-                   ${ready ? "border-danger/60 text-danger" : "border-border"}`}
-      />
+        className={`w-full text-xs font-mono text-ink bg-overlay border rounded px-2 py-1.5
+                   outline-none transition-colors ${ready ? "border-danger/60 text-danger" : "border-border"}`} />
       <div className="flex gap-2 items-center">
-        <button
-          onClick={doDelete}
-          disabled={!ready}
+        <button onClick={doDelete} disabled={!ready}
           className={`text-xs font-mono px-3 py-1 rounded transition-colors
-            ${ready
-              ? "bg-danger text-white hover:bg-danger/80"
-              : "bg-overlay text-subtle cursor-not-allowed"}`}
-        >
+            ${ready ? "bg-danger text-white hover:bg-danger/80" : "bg-overlay text-subtle cursor-not-allowed"}`}>
           Delete everything
         </button>
-        <button
-          onClick={reset}
-          className="text-xs font-mono text-subtle hover:text-ink transition-colors"
-        >
-          Cancel
-        </button>
+        <button onClick={reset} className="text-xs font-mono text-subtle hover:text-ink transition-colors">Cancel</button>
       </div>
     </div>
   );
 }
 
+// ── NotesSection ──────────────────────────────────────────────────────────────
+
 export function NotesSection() {
   const s = useSettingsStore();
+
+  const currentFont = FONT_OPTIONS.find((f) => f.value === s.defaultEditorFont)
+    ?? FONT_OPTIONS[0];
 
   return (
     <div>
@@ -112,6 +98,41 @@ export function NotesSection() {
         <SettingRow label="Spell check" description="Underline misspelled words while typing.">
           <Toggle value={s.spellCheck} onChange={(v) => s.set("spellCheck", v)} />
         </SettingRow>
+
+        {/* ── Default font ─────────────────────────────────────────────────── */}
+        <SettingRow
+          label="Default font"
+          description="Applied when opening a note. Can be changed per-note via the toolbar."
+        >
+          <div className="relative">
+            <select
+              value={s.defaultEditorFont}
+              onChange={(e) => s.set("defaultEditorFont", e.target.value)}
+              className="appearance-none text-xs font-mono text-ink bg-overlay
+                         border border-border rounded px-2.5 py-1.5 pr-7
+                         outline-none focus:border-amber/50 transition-colors cursor-pointer"
+            >
+              {FONT_OPTIONS.map((f) => (
+                <option key={f.label} value={f.value}>{f.label}</option>
+              ))}
+            </select>
+            <div className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" strokeWidth="2.5" className="text-subtle">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </div>
+          </div>
+        </SettingRow>
+
+        {/* Inline preview of the selected font */}
+        <div className="px-4 pb-3">
+          <p className="text-xs text-muted/60 leading-relaxed"
+             style={{ fontFamily: currentFont.value || "inherit" }}>
+            The quick brown fox jumps over the lazy dog — 1234567890
+          </p>
+        </div>
+
         <SettingRow label="Font size" description="Body text size in the editor.">
           <Select
             value={s.editorFontSize}
@@ -126,6 +147,7 @@ export function NotesSection() {
             ]}
           />
         </SettingRow>
+
         <SettingRow label="Line height" description="Spacing between lines of text.">
           <Select
             value={s.editorLineHeight}

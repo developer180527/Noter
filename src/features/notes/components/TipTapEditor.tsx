@@ -31,6 +31,8 @@ import { SyncedBlock }    from "../extensions/SyncedBlock";
 import { BlockId }        from "../extensions/BlockId";
 import { useNoteStore }   from "../note.store";
 import { CollapsibleHeadings } from "../extensions/CollapsibleHeading";
+import { TextStyle } from "@tiptap/extension-text-style";
+import { useSettingsStore } from "@/features/settings/settings.store";
 
 // ── Handle ────────────────────────────────────────────────────────────────────
 
@@ -379,20 +381,39 @@ function BacklinksPanel({ noteId }: { noteId: string }) {
   );
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+// Clamp a floating menu position so it stays inside the viewport
+function clampToViewport(
+  top:    number,
+  left:   number,
+  width  = 288,
+  height = 340,
+): { top: number; left: number } {
+  return {
+    top:  Math.min(top,  window.innerHeight - height - 12),
+    left: Math.min(Math.max(left, 8), window.innerWidth - width - 8),
+  };
+}
+
 // ── SlashMenu ─────────────────────────────────────────────────────────────────
 
 interface SlashItem { label: string; description: string; icon: LucideIcon; action: (editor: Editor) => void; }
 
 function SlashMenu({ editor, position, onClose }: {
-  editor: Editor; position: { top: number; left: number }; onClose: (openBlockPicker?: boolean) => void;
+  editor:   Editor;
+  position: { top: number; left: number };
+  onClose:  (openBlockPicker?: boolean) => void;
 }) {
-  const [query,   setQuery]   = useState("");
-  const inputRef              = useRef<HTMLInputElement>(null);
+  const [query,      setQuery]      = useState("");
+  const [focusedIdx, setFocusedIdx] = useState(0);
+  const inputRef                    = useRef<HTMLInputElement>(null);
   useEffect(() => { inputRef.current?.focus(); }, []);
 
   const insertImage = useCallback(() => {
-    const input = document.createElement("input");
-    input.type = "file"; input.accept = "image/*";
+    const input    = document.createElement("input");
+    input.type     = "file";
+    input.accept   = "image/*";
     input.onchange = () => {
       const file = input.files?.[0]; if (!file) return;
       const reader = new FileReader();
@@ -430,22 +451,42 @@ function SlashMenu({ editor, position, onClose }: {
 
   const filtered = items.filter((i) => i.label.toLowerCase().includes(query.toLowerCase()));
 
+  const onKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Escape")    { onClose(); return; }
+    if (e.key === "ArrowDown") { e.preventDefault(); setFocusedIdx((i) => Math.min(i + 1, filtered.length - 1)); return; }
+    if (e.key === "ArrowUp")   { e.preventDefault(); setFocusedIdx((i) => Math.max(i - 1, 0)); return; }
+    if (e.key === "Enter")     { e.preventDefault(); if (filtered[focusedIdx]) filtered[focusedIdx].action(editor); return; }
+  };
+
   return (
     <>
       <div className="fixed inset-0 z-40" onClick={() => onClose()} />
-      <div className="fixed z-50 w-64 bg-white border border-[#e0dbd2] rounded-xl shadow-2xl overflow-hidden"
-           style={{ top: position.top, left: position.left }}>
+      <div
+        className="fixed z-50 w-64 bg-white border border-[#e0dbd2] rounded-xl shadow-2xl overflow-hidden"
+        style={{ top: position.top, left: position.left }}
+      >
         <div className="px-3 pt-2 pb-1 border-b border-[#f0ece6]">
-          <input ref={inputRef} value={query} onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={(e) => { setQuery(e.target.value); setFocusedIdx(0); }}
+            onKeyDown={onKey}
             placeholder="Search commands…"
-            className="w-full text-xs font-mono bg-transparent outline-none text-gray-700 placeholder:text-gray-300" />
+            className="w-full text-xs font-mono bg-transparent outline-none text-gray-700 placeholder:text-gray-300"
+          />
         </div>
         <div className="max-h-52 overflow-y-auto py-1">
           {filtered.length === 0 && <p className="px-3 py-2 text-xs text-gray-400">No results</p>}
-          {filtered.map((item) => (
-            <button key={item.label} onMouseDown={(e) => { e.preventDefault(); item.action(editor); }}
-              className="w-full flex items-center gap-3 px-3 py-2 hover:bg-[#f5f2ee] transition-colors text-left">
+          {filtered.map((item, idx) => (
+            <button
+              key={item.label}
+              onMouseDown={(e) => { e.preventDefault(); item.action(editor); }}
+              onMouseEnter={() => setFocusedIdx(idx)}
+              className={clsx(
+                "w-full flex items-center gap-3 px-3 py-2 transition-colors text-left",
+                idx === focusedIdx ? "bg-[#f5f2ee]" : "hover:bg-[#f5f2ee]"
+              )}
+            >
               <div className="w-7 h-7 rounded-md bg-[#f0ece6] flex items-center justify-center shrink-0">
                 <item.icon size={14} className="text-[#9a9080]" />
               </div>
@@ -470,45 +511,47 @@ export const TipTapEditor = forwardRef<TipTapEditorHandle, TipTapEditorProps>(
     const [noteLinkMenu, setNoteLinkMenu] = useState<PickerPos | null>(null);
     const [blockMenu,    setBlockMenu]    = useState<PickerPos | null>(null);
     const lastPos                         = useRef<number>(0);
-    const editorRef = useRef<Editor | null>(null);
+    const editorRef                       = useRef<Editor | null>(null);
+    const defaultFont                     = useSettingsStore((s) => s.defaultEditorFont);
 
+    // Accurate cursor position for pickers — reads via ref, no dependency on editor instance
     const getPickerPos = useCallback((): PickerPos => {
-      // Use the editor's coordsAtPos for accurate cursor coordinates
       const view = editorRef.current?.view;
       if (view) {
         try {
-          const coords = editor.view.coordsAtPos(lastPos.current);
-          return { top: coords.bottom + 6, left: coords.left, insertPos: lastPos.current };
+          const coords = view.coordsAtPos(lastPos.current);
+          const clamped = clampToViewport(coords.bottom + 6, coords.left, 320, 360);
+          return { ...clamped, insertPos: lastPos.current };
         } catch { /* fall through */ }
       }
       return { top: 200, left: 200, insertPos: lastPos.current };
     }, []);
 
     const editor = useEditor({
-    extensions: [
-      CollapsibleHeadings,
-      StarterKit.configure({
-        heading:    { levels: [1, 2, 3] },
-        codeBlock:  { HTMLAttributes: { class: "noter-code-block" } },
-        blockquote: { HTMLAttributes: { class: "noter-blockquote" } },
-      }),
-      ImageExt.configure({ inline: false, allowBase64: true }),
-      Youtube.configure({ width: 560, height: 315, nocookie: true }),
-      Placeholder.configure({
-        placeholder:    placeholder ?? "Start writing… type / for commands, >> to link a note",
-        emptyNodeClass: "noter-placeholder",
-      }),
-      TextAlign.configure({ types: ["heading", "paragraph"] }),
-      Underline,
-      Highlight.configure({ multicolor: false }),
-      Typography,
-      Link.configure({ openOnClick: false }),
-      // ── New ──────────────────
-      FontFamily.configure({ types: ["textStyle"] }),
-      NoteLink,
-      SyncedBlock,
-      BlockId,
-    ],
+      extensions: [
+        StarterKit.configure({
+          heading:    { levels: [1, 2, 3] },
+          codeBlock:  { HTMLAttributes: { class: "noter-code-block" } },
+          blockquote: { HTMLAttributes: { class: "noter-blockquote" } },
+        }),
+        ImageExt.configure({ inline: false, allowBase64: true }),
+        Youtube.configure({ width: 560, height: 315, nocookie: true }),
+        Placeholder.configure({
+          placeholder:    placeholder ?? "Start writing… type / for commands, >> to link a note",
+          emptyNodeClass: "noter-placeholder",
+        }),
+        TextAlign.configure({ types: ["heading", "paragraph"] }),
+        Underline,
+        Highlight.configure({ multicolor: false }),
+        Typography,
+        Link.configure({ openOnClick: false }),
+        TextStyle,
+        FontFamily.configure({ types: ["textStyle"] }),
+        NoteLink,
+        SyncedBlock,
+        BlockId,
+        CollapsibleHeadings,
+      ],
       content,
       onFocus: () => onFocus(),
       onBlur:  () => onBlur(),
@@ -518,37 +561,42 @@ export const TipTapEditor = forwardRef<TipTapEditorHandle, TipTapEditorProps>(
         handleKeyDown(view, event) {
           lastPos.current = view.state.selection.from;
 
-          // ── Slash menu ─────────────────────────────────────────
+          // ── Slash menu ──────────────────────────────────────────────────────
+          // Context-aware: only trigger at start of block or after whitespace.
+          // Prevents accidental triggers in URLs, code, fractions, dates.
           if (event.key === "/" && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
+            const { $from }      = view.state.selection;
+            const textBefore     = $from.nodeBefore?.text ?? "";
+            const isStartOfBlock = $from.parentOffset === 0;
+            const afterWhitespace = textBefore.length > 0 && /\s$/.test(textBefore);
+
+            if (!isStartOfBlock && !afterWhitespace) return false;
+
             const from = view.state.selection.from;
             setTimeout(() => {
-              // coordsAtPos gives accurate viewport coordinates — window.getSelection()
-              // returns an empty rect for collapsed cursors, causing top-left snapping
               try {
-                const coords = view.coordsAtPos(Math.min(from + 1, view.state.doc.content.size));
-                setSlashMenu({ top: coords.bottom + 6, left: coords.left });
+                const coords  = view.coordsAtPos(Math.min(from + 1, view.state.doc.content.size));
+                const clamped = clampToViewport(coords.bottom + 6, coords.left, 256, 300);
+                setSlashMenu(clamped);
               } catch {
-                const coords = view.coordsAtPos(from);
-                setSlashMenu({ top: coords.bottom + 6, left: coords.left });
+                const coords  = view.coordsAtPos(from);
+                const clamped = clampToViewport(coords.bottom + 6, coords.left, 256, 300);
+                setSlashMenu(clamped);
               }
             }, 0);
           }
 
-          // ── >> note link ───────────────────────────────────────
+          // ── >> note link ────────────────────────────────────────────────────
           if (event.key === ">" && !event.metaKey && !event.ctrlKey && !event.shiftKey) {
             const { $from }  = view.state.selection;
             const textBefore = $from.nodeBefore?.text ?? "";
             if (textBefore.endsWith(">")) {
-              const insertPos = $from.pos - 1;
-              // Get coords BEFORE dispatch so position is still valid
-              const coords = view.coordsAtPos(Math.max(insertPos, 1));
+              const insertPos   = $from.pos - 1;
+              const coords      = view.coordsAtPos(Math.max(insertPos, 1));
+              const clamped     = clampToViewport(coords.bottom + 6, coords.left, 288, 320);
               view.dispatch(view.state.tr.delete(insertPos, $from.pos));
-              setNoteLinkMenu({
-                top:       coords.bottom + 6,
-                left:      coords.left,
-                insertPos,
-              });
-              return true; // prevent second ">" from inserting
+              setNoteLinkMenu({ ...clamped, insertPos });
+              return true;
             }
           }
 
@@ -557,7 +605,20 @@ export const TipTapEditor = forwardRef<TipTapEditorHandle, TipTapEditorProps>(
       },
     }, [noteId]);
 
-    // Sync content on note switch
+    // Keep editorRef in sync with the editor instance
+    useEffect(() => {
+      editorRef.current = editor;
+    }, [editor]);
+
+    // Clear all floating menus when switching notes
+    // Prevents stale pickers with invalid insertion positions
+    useEffect(() => {
+      setSlashMenu(null);
+      setNoteLinkMenu(null);
+      setBlockMenu(null);
+    }, [noteId]);
+
+    // Sync content when switching notes
     useEffect(() => {
       if (!editor || editor.isDestroyed) return;
       if (JSON.stringify(editor.getJSON()) !== JSON.stringify(content)) {
@@ -575,7 +636,15 @@ export const TipTapEditor = forwardRef<TipTapEditorHandle, TipTapEditorProps>(
       <div className="relative">
         {editor && <BubbleToolbar editor={editor} />}
 
-        <EditorContent editor={editor} />
+        {/*
+          defaultFont applied as CSS on the container — visual baseline only.
+          Explicit FontFamily marks from the toolbar override this per selection.
+          No document mutation, no selectAll, no overwriting saved per-note fonts.
+        */}
+        <EditorContent
+          editor={editor}
+          style={defaultFont ? { fontFamily: defaultFont } : undefined}
+        />
 
         {/* Backlinks */}
         <BacklinksPanel noteId={noteId} />
@@ -586,9 +655,11 @@ export const TipTapEditor = forwardRef<TipTapEditorHandle, TipTapEditorProps>(
             editor={editor}
             position={slashMenu}
             onClose={(openBlock) => {
+              // Capture position synchronously before closing — avoids race condition
+              const pos = openBlock ? getPickerPos() : null;
               setSlashMenu(null);
-              if (openBlock) {
-                setTimeout(() => setBlockMenu(getPickerPos()), 50);
+              if (pos) {
+                setBlockMenu(pos);      // no setTimeout needed — pos already captured
               } else {
                 editor.commands.focus();
               }

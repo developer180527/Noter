@@ -13,18 +13,19 @@ export interface AppSettings {
   activeSection: SettingsSection;
 
   // Notes / Editor
-  autoSaveDelay:    number;
-  editorFontSize:   number;
-  editorLineHeight: number;
-  spellCheck:       boolean;
-  defaultNoteTitle: string;
+  autoSaveDelay:     number;
+  editorFontSize:    number;
+  editorLineHeight:  number;
+  spellCheck:        boolean;
+  defaultNoteTitle:  string;
+  defaultEditorFont: string;   // font-family value, "" = prose-noter default
 
   // Appearance
   reducedMotion: boolean;
 
   // State persistence
-  persistWindowSize:     boolean;  // restore last window dimensions on launch
-  persistWorkflowState:  boolean;  // restore open tabs and active note on launch
+  persistWindowSize:     boolean;
+  persistWorkflowState:  boolean;
 
   // Permissions
   permCrashReports:  boolean;
@@ -45,13 +46,14 @@ interface SettingsActions {
 }
 
 const DEFAULTS: AppSettings = {
-  activeSection:    "general",
-  autoSaveDelay:    800,
-  editorFontSize:   16,
-  editorLineHeight: 1.85,
-  spellCheck:       true,
-  defaultNoteTitle: "Untitled",
-  reducedMotion:    false,
+  activeSection:     "general",
+  autoSaveDelay:     800,
+  editorFontSize:    16,
+  editorLineHeight:  1.85,
+  spellCheck:        true,
+  defaultNoteTitle:  "Untitled",
+  defaultEditorFont: "",        // "" = use prose-noter default (Crimson Pro)
+  reducedMotion:     false,
   persistWindowSize:    true,
   persistWorkflowState: true,
   permCrashReports:  true,
