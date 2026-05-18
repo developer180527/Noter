@@ -1,22 +1,18 @@
-// src/features/notes/pdf/exportToPDF.ts
+// src/features/export/exporters/pdf.ts
+// PDF exporter — uses @react-pdf/renderer (fully offline, no sidecar).
+// Wires into ExportMenu alongside html.ts and markdown.ts.
+
 import { createElement, type ReactElement } from "react";
 import { pdf }           from "@react-pdf/renderer";
-import { registerFonts } from "./fonts";
-import { NotePDF }       from "./NotePDF";
+import { registerFonts } from "./pdfFonts";
+import { NotePDF }       from "./pdfDocument";
 
-interface ExportOptions {
-  note:       any;
-  noteStore?: any;
-}
+// ── Main export function ──────────────────────────────────────────────────────
 
-export async function exportToPDF({ note, noteStore }: ExportOptions): Promise<void> {
-  // Register fonts once
+export async function exportPdf(note: any, noteStore?: any): Promise<void> {
   registerFonts();
 
-  // Build the document element — typed as ReactElement to satisfy pdf()
   const element: ReactElement = createElement(NotePDF, { note, noteStore });
-
-  // Generate PDF blob entirely in JS — no network, no sidecar, fully offline
   const blob     = await pdf(element).toBlob();
   const filename = sanitizeFilename(note.title || "untitled") + ".pdf";
 
@@ -33,24 +29,17 @@ function isTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
-// ── Tauri — native Save As dialog ─────────────────────────────────────────────
-
 async function saveTauri(blob: Blob, filename: string): Promise<void> {
   const { save }      = await import("@tauri-apps/plugin-dialog");
   const { writeFile } = await import("@tauri-apps/plugin-fs");
-
   const path = await save({
     defaultPath: filename,
     filters: [{ name: "PDF Document", extensions: ["pdf"] }],
   });
-
-  if (!path) return; // user cancelled
-
+  if (!path) return;
   const buffer = await blob.arrayBuffer();
   await writeFile(path, new Uint8Array(buffer));
 }
-
-// ── Browser / PWA — anchor download ──────────────────────────────────────────
 
 function saveBrowser(blob: Blob, filename: string): void {
   const url  = URL.createObjectURL(blob);
@@ -61,12 +50,6 @@ function saveBrowser(blob: Blob, filename: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 function sanitizeFilename(name: string): string {
-  return name
-    .replace(/[/\\?%*:|"<>]/g, "-")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 100);
+  return name.replace(/[/\\?%*:|"<>]/g, "-").replace(/\s+/g, " ").trim().slice(0, 100);
 }

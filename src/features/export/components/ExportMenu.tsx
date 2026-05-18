@@ -5,6 +5,7 @@ import { exportPdf }      from "../exporters/pdf";
 import { exportHtml }     from "../exporters/html";
 import { exportMarkdown } from "../exporters/markdown";
 import type { Note } from "@/features/notes/types";
+import { useNoteStore } from "@/features/notes/note.store";
 
 interface ExportMenuProps {
   note: Note;
@@ -34,12 +35,19 @@ export function ExportMenu({ note }: ExportMenuProps) {
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
+  const noteStore = useNoteStore.getState();
   const options: ExportOption[] = [
+    
+    // Fix the PDF option action:
     {
       label:       "Print / Export PDF",
-      description: "Opens the system print dialog",
+      description: "Exports a beautifully formatted PDF to disk",
       icon:        Printer,
-      action:      () => { exportPdf(note.pageSize ?? "a4", note.title); setOpen(false); },
+      action:      () => {
+        exportPdf(note, noteStore)
+          .catch((e) => console.error("PDF export failed:", e));
+        setOpen(false);
+          },
     },
     {
       label:       "Export as HTML",
