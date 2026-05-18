@@ -391,3 +391,5 @@ export function ActivityBar() {
     </div>
   );
 }
+
+export { useActivityBarStore };

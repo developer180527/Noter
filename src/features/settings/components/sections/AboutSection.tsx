@@ -22,7 +22,7 @@ export function AboutSection() {
         </div>
         <div>
           <p className="text-sm font-sans font-semibold text-ink">noter</p>
-          <p className="text-2xs font-mono text-subtle mt-0.5">Version 2.0.0</p>
+          <p className="text-2xs font-mono text-subtle mt-0.5">Version 3.0.0</p>
           <p className="text-xs font-sans text-muted mt-2 leading-relaxed max-w-sm">
             A fast, beautiful, offline-first note-taking app built on an extensible
             plugin architecture. Your notes live on your device — always.
@@ -32,7 +32,7 @@ export function AboutSection() {
 
       <SettingGroup title="Version">
         <SettingRow label="App version">
-          <span className="text-xs font-mono text-muted">2.0.0</span>
+          <span className="text-xs font-mono text-muted">3.0.0</span>
         </SettingRow>
         <SettingRow label="Build">
           <span className="text-xs font-mono text-muted">tauri v2 · react 19</span>

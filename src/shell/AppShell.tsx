@@ -2,6 +2,7 @@ import { useHasTabs } from "@/hooks/useBreakpoint";
 import { DesktopLayout } from "./DesktopLayout";
 import { MobileLayout }  from "./MobileLayout";
 import { useKernelReady } from "@/core";
+import { ThemeApplier } from "./ThemeApplier";
 
 // ── Boot splash ───────────────────────────────────────────────────────────────
 
@@ -34,6 +35,7 @@ export function AppShell() {
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-base text-ink">
+      <ThemeApplier /> 
       {hasTabs ? <DesktopLayout /> : <MobileLayout />}
     </div>
   );
