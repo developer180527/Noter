@@ -6,13 +6,14 @@
 // Content hidden via CSS class injected by Decoration.node().
 
 import { Extension }         from "@tiptap/core";
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
-import { Decoration, DecorationSet } from "@tiptap/pm/view";
+import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view";
 
 const KEY = new PluginKey<Set<string>>("collapsibleHeadings");
 
 // Stable string key for a heading based on its position + level + text
-function hKey(offset: number, node: any): string {
+function hKey(offset: number, node: ProseMirrorNode): string {
   return `${node.attrs.level}::${offset}::${(node.textContent as string).slice(0, 40)}`;
 }
 
@@ -57,14 +58,14 @@ function injectCSS() {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function getTopLevelChildren(doc: any): Array<{ node: any; offset: number }> {
-  const out: Array<{ node: any; offset: number }> = [];
-  doc.forEach((node: any, offset: number) => out.push({ node, offset }));
+function getTopLevelChildren(doc: ProseMirrorNode): Array<{ node: ProseMirrorNode; offset: number }> {
+  const out: Array<{ node: ProseMirrorNode; offset: number }> = [];
+  doc.forEach((node, offset) => out.push({ node, offset }));
   return out;
 }
 
 // Does this heading have any content beneath it (before next same-level heading)?
-function hasContent(children: Array<{ node: any; offset: number }>, idx: number, level: number): boolean {
+function hasContent(children: Array<{ node: ProseMirrorNode; offset: number }>, idx: number, level: number): boolean {
   for (let i = idx + 1; i < children.length; i++) {
     const { node } = children[i];
     if (node.type.name === "heading" && node.attrs.level <= level) return false;
@@ -76,9 +77,9 @@ function hasContent(children: Array<{ node: any; offset: number }>, idx: number,
 // ── Build decorations ─────────────────────────────────────────────────────────
 
 function buildDecs(
-  doc:       any,
+  doc:       ProseMirrorNode,
   collapsed: Set<string>,
-  viewRef:   { current: any },
+  viewRef:   { current: EditorView | null },
 ): DecorationSet {
   const decs: Decoration[] = [];
   const children           = getTopLevelChildren(doc);
@@ -165,7 +166,7 @@ export const CollapsibleHeadings = Extension.create({
   addProseMirrorPlugins() {
     // viewRef is populated in the plugin's view() callback
     // and read inside widget event handlers
-    const viewRef: { current: any } = { current: null };
+    const viewRef: { current: EditorView | null } = { current: null };
 
     return [
       new Plugin<Set<string>>({

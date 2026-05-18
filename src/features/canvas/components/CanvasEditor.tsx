@@ -1,6 +1,8 @@
 import { useEffect, useRef, useCallback, useState, lazy, Suspense } from "react";
 import { Link, FileText, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { MainMenu } from "@excalidraw/excalidraw";
+import type { AppState, ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
+import type { ExcalidrawElement, NonDeletedExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import { useCanvasStore } from "../canvas.store";
 import { useNoteStore } from "@/features/notes/note.store";
 import { useTabStore } from "@/features/tabs/tab.store";
@@ -10,6 +12,28 @@ import type { Note } from "@/features/notes/types";
 const Excalidraw = lazy(() =>
   import("@excalidraw/excalidraw").then((m) => ({ default: m.Excalidraw }))
 );
+
+type StoredCanvasAppState = Pick<AppState, "theme" | "viewBackgroundColor"> & Partial<Pick<AppState, "gridSize" | "zoom" | "scrollX" | "scrollY">>;
+
+interface NoteRefCustomData {
+  type: "noter:note-ref";
+  noteId: string;
+  title: string;
+}
+
+function isNoteRefCustomData(value: unknown): value is NoteRefCustomData {
+  if (typeof value !== "object" || value === null) return false;
+  const data = value as Record<string, unknown>;
+  return data.type === "noter:note-ref" && typeof data.noteId === "string";
+}
+
+function parseStoredJson<T>(raw: string, fallback: T): T {
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
 
 // ── Note picker modal ─────────────────────────────────────────────────────────
 
@@ -71,14 +95,14 @@ export function CanvasEditor({ sidebarOpen, onToggleSidebar }: CanvasEditorProps
   const { setActiveTab }  = useTabStore();
   const drawing = drawings.find((d) => d.id === activeDrawingId);
 
-  const excalidrawRef  = useRef<any>(null);
+  const excalidrawRef  = useRef<ExcalidrawImperativeAPI | null>(null);
   const saveTimer      = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showPicker,   setShowPicker]   = useState(false);
   const [initialized,  setInitialized]  = useState(false);
 
   useEffect(() => { setInitialized(false); }, [activeDrawingId]);
 
-  const handleChange = useCallback((elements: any[], appState: any) => {
+  const handleChange = useCallback((elements: readonly ExcalidrawElement[], appState: AppState) => {
     if (!activeDrawingId || !initialized) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
@@ -110,7 +134,7 @@ export function CanvasEditor({ sidebarOpen, onToggleSidebar }: CanvasEditorProps
     const rectId = `noter-ref-${note.id}-${Date.now()}`;
     const textId = `noter-text-${note.id}-${Date.now()}`;
 
-    const rect: any = {
+    const rect = {
       type:            "rectangle",
       version:         1, versionNonce: seed,
       isDeleted:       false,
@@ -133,9 +157,9 @@ export function CanvasEditor({ sidebarOpen, onToggleSidebar }: CanvasEditorProps
       link:            `noter://note/${note.id}`,
       locked:          false,
       customData:      { type: "noter:note-ref", noteId: note.id, title: note.title },
-    };
+    } as unknown as ExcalidrawElement;
 
-    const text: any = {
+    const text = {
       type:            "text",
       version:         1, versionNonce: seed + 1,
       isDeleted:       false,
@@ -165,14 +189,14 @@ export function CanvasEditor({ sidebarOpen, onToggleSidebar }: CanvasEditorProps
       containerId:     rectId,   // ← binds text to rect, moves together
       originalText:    `📄 ${note.title || "Untitled"}`,
       lineHeight:      1.4,
-    };
+    } as unknown as ExcalidrawElement;
 
     api.updateScene({ elements: [...elements, rect, text] });
     api.scrollToContent(rect, { animate: true, fitToContent: false });
   }, []);
 
-  const handleLinkOpen = useCallback((element: any, event: any) => {
-    if (element?.customData?.type === "noter:note-ref") {
+  const handleLinkOpen = useCallback((element: NonDeletedExcalidrawElement, event: CustomEvent<{ nativeEvent: MouseEvent | React.PointerEvent<HTMLCanvasElement> }>) => {
+    if (isNoteRefCustomData(element.customData)) {
       event?.preventDefault?.();
       setActiveNote(element.customData.noteId);
       setActiveTab(NOTES_TAB_ID);
@@ -190,13 +214,12 @@ export function CanvasEditor({ sidebarOpen, onToggleSidebar }: CanvasEditorProps
     );
   }
 
-  let initialElements: any[] = [];
-  let initialAppState: any   = {
+  const initialElements = parseStoredJson<ExcalidrawElement[]>(drawing.elements, []);
+  const initialAppState: StoredCanvasAppState = {
     theme:               "dark",
     viewBackgroundColor: "#0d0d0d",
+    ...parseStoredJson<Partial<StoredCanvasAppState>>(drawing.appState, {}),
   };
-  try { initialElements = JSON.parse(drawing.elements); }  catch { /**/ }
-  try { initialAppState = { ...initialAppState, ...JSON.parse(drawing.appState) }; } catch { /**/ }
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden relative">
@@ -211,7 +234,7 @@ export function CanvasEditor({ sidebarOpen, onToggleSidebar }: CanvasEditorProps
           initialData={{ elements: initialElements, appState: initialAppState }}
           onChange={(elements, appState) => {
             if (!initialized) { setInitialized(true); return; }
-            handleChange(elements as any[], appState as any);
+            handleChange(elements, appState);
           }}
           onLinkOpen={handleLinkOpen}
           theme="dark"

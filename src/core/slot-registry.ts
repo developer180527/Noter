@@ -2,7 +2,7 @@ import { type ComponentType } from "react";
 import type { SlotRegistry as ISlotRegistry } from "./types";
 
 export class SlotRegistry implements ISlotRegistry {
-  private readonly slots     = new Map<string, ComponentType<any>>();
+  private readonly slots     = new Map<string, ComponentType<unknown>>();
   private readonly listeners = new Set<() => void>();
   private snapshotVersion    = 0;
   private eventBus?: { emit: (event: string) => void };
@@ -17,8 +17,8 @@ export class SlotRegistry implements ISlotRegistry {
     this.eventBus?.emit("kernel:slot:registered");
   }
 
-  register(slot: string, component: ComponentType<any>): void {
-    this.slots.set(slot, component);
+  register<P>(slot: string, component: ComponentType<P>): void {
+    this.slots.set(slot, component as ComponentType<unknown>);
     this.notify();
   }
 
@@ -27,8 +27,8 @@ export class SlotRegistry implements ISlotRegistry {
     this.notify();
   }
 
-  get(slot: string): ComponentType<any> | undefined {
-    return this.slots.get(slot);
+  get<P = unknown>(slot: string): ComponentType<P> | undefined {
+    return this.slots.get(slot) as ComponentType<P> | undefined;
   }
 
   has(slot: string): boolean {

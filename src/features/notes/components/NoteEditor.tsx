@@ -76,12 +76,15 @@ export function SingleEditor({ noteId, isSplit, onClose, panelOpen, onTogglePane
   const draft     = useRef<Partial<Omit<Note, "id" | "createdAt">>>({});
   const draftId   = useRef<string>(noteId);
 
-  const flush = useCallback(() => {
+  const flush = useCallback((): Note | null => {
     const id = draftId.current;
-    if (!id || Object.keys(draft.current).length === 0) return;
-    updateNote(id, draft.current);
+    if (!id) return null;
+    const hasChanges = Object.keys(draft.current).length > 0;
+    if (hasChanges) updateNote(id, draft.current);
     draft.current = {};
-    kernel.events.emit(SYNC_EVENTS.NOTE_FLUSHED, { id });
+    const latest = useNoteStore.getState().notes.find((n) => n.id === id) ?? null;
+    if (hasChanges && latest) kernel.events.emit(SYNC_EVENTS.NOTE_FLUSHED, { id, note: latest });
+    return latest;
   }, [updateNote, kernel]);
 
   useEffect(() => () => { flush(); }, [noteId, flush]);
@@ -151,7 +154,7 @@ export function SingleEditor({ noteId, isSplit, onClose, panelOpen, onTogglePane
         >
           <Archive size={13} />
         </button>
-        <ExportMenu note={note} />
+        <ExportMenu note={note} onBeforeExport={flush} />
         <button onClick={handleDelete} title="Delete note"
           className="p-1.5 rounded text-subtle hover:text-danger hover:bg-danger/10 transition-colors">
           <Trash2 size={13} />

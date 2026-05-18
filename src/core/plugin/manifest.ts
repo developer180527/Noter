@@ -12,6 +12,8 @@ export interface PluginManifest {
   name:         string;
   /** Semver string. */
   version:      string;
+  /** Host bridge API version this plugin was built against. */
+  apiVersion:   string;
   /** One-line description shown in the Plugins list. */
   description?: string;
   /** Plugin author name or handle. */
@@ -42,6 +44,9 @@ export function validateManifest(raw: unknown): string[] {
 
   if (!m.version || typeof m.version !== "string")
     errors.push("Missing or invalid 'version' (semver string required)");
+
+  if (!m.apiVersion || typeof m.apiVersion !== "string")
+    errors.push("Missing or invalid 'apiVersion' (string required)");
 
   if (!Array.isArray(m.permissions))
     errors.push("Missing or invalid 'permissions' (array required)");

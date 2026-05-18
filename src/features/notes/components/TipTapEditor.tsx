@@ -25,7 +25,7 @@ import {
   ExternalLink, Type,
 } from "lucide-react";
 import { clsx }           from "clsx";
-import type { TipTapDoc } from "../types";
+import type { Note, TipTapDoc, TipTapNode } from "../types";
 import { NoteLink }       from "../extensions/NoteLink";
 import { SyncedBlock }    from "../extensions/SyncedBlock";
 import { BlockId }        from "../extensions/BlockId";
@@ -56,6 +56,12 @@ interface TipTapEditorProps {
 // ── Picker position ───────────────────────────────────────────────────────────
 
 interface PickerPos { top: number; left: number; insertPos: number; }
+
+interface SyncedBlockOption {
+  blockId: string;
+  preview: string;
+  type: string;
+}
 
 // ── Fonts ─────────────────────────────────────────────────────────────────────
 
@@ -166,15 +172,15 @@ function NoteLinkPicker({ editor, position, onClose }: { editor: Editor; positio
   const [query,   setQuery]   = useState("");
   const [focused, setFocused] = useState(0);
   const inputRef              = useRef<HTMLInputElement>(null);
-  const notes                 = useNoteStore((s: any) => (s.notes ?? []) as any[]);
+  const notes                 = useNoteStore((s) => s.notes);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
   const filtered = notes
-    .filter((n: any) => !n.archived && (n.title || "Untitled").toLowerCase().includes(query.toLowerCase()))
+    .filter((n) => !n.archived && (n.title || "Untitled").toLowerCase().includes(query.toLowerCase()))
     .slice(0, 8);
 
-  const insert = (note: any) => {
+  const insert = (note: Note) => {
     editor.chain().focus()
       .insertContentAt(position.insertPos, { type: "noteLink", attrs: { noteId: note.id, noteTitle: note.title || "Untitled" } })
       .run();
@@ -210,7 +216,7 @@ function NoteLinkPicker({ editor, position, onClose }: { editor: Editor; positio
         <div className="max-h-56 overflow-y-auto py-1">
           {filtered.length === 0
             ? <p className="px-4 py-3 text-xs font-mono" style={{ color: "rgba(255,255,255,0.3)" }}>No notes found</p>
-            : filtered.map((note: any, i: number) => (
+            : filtered.map((note, i) => (
                 <button key={note.id} onClick={() => insert(note)} onMouseEnter={() => setFocused(i)}
                   className="w-full text-left px-4 py-2.5 flex items-center gap-2 text-xs font-sans transition-colors"
                   style={{ background: i === focused ? "rgba(212,144,58,0.10)" : "transparent",
@@ -229,7 +235,7 @@ function NoteLinkPicker({ editor, position, onClose }: { editor: Editor; positio
 
 // ── Helpers for BlockPicker ───────────────────────────────────────────────────
 
-function extractText(node: any): string {
+function extractText(node: TipTapNode | null | undefined): string {
   if (!node) return "";
   if (node.text) return node.text;
   if (Array.isArray(node.content)) return node.content.map(extractText).join("");
@@ -244,21 +250,21 @@ function BlockPicker({ editor, position, onClose }: { editor: Editor; position: 
   const [query,   setQuery]   = useState("");
   const [focused, setFocused] = useState(0);
   const inputRef              = useRef<HTMLInputElement>(null);
-  const notes                 = useNoteStore((s: any) => (s.notes ?? []) as any[]);
+  const notes                 = useNoteStore((s) => s.notes);
 
   useEffect(() => { inputRef.current?.focus(); }, [step]);
 
-  const sourceNote  = notes.find((n: any) => n.id === noteId);
-  const blocks      = useMemo(() => {
+  const sourceNote  = notes.find((n) => n.id === noteId);
+  const blocks      = useMemo<SyncedBlockOption[]>(() => {
     const doc = sourceNote?.content ?? sourceNote?.body;
     if (!doc || typeof doc === "string") return [];
     return (doc.content ?? [])
-      .filter((n: any) => n.attrs?.blockId)
-      .map((n: any) => ({ blockId: n.attrs.blockId, preview: extractText(n).slice(0, 70) || "Empty block", type: n.type }));
+      .filter((n): n is TipTapNode & { attrs: { blockId: string } } => typeof n.attrs?.blockId === "string")
+      .map((n) => ({ blockId: n.attrs.blockId, preview: extractText(n).slice(0, 70) || "Empty block", type: n.type }));
   }, [sourceNote]);
 
-  const filteredNotes  = notes.filter((n: any) => !n.archived && (n.title || "").toLowerCase().includes(query.toLowerCase())).slice(0, 8);
-  const filteredBlocks = blocks.filter((b: any) => b.preview.toLowerCase().includes(query.toLowerCase()));
+  const filteredNotes  = notes.filter((n) => !n.archived && (n.title || "").toLowerCase().includes(query.toLowerCase())).slice(0, 8);
+  const filteredBlocks = blocks.filter((b) => b.preview.toLowerCase().includes(query.toLowerCase()));
 
   const insertBlock = (blockId: string) => {
     if (!noteId) return;
@@ -314,7 +320,7 @@ function BlockPicker({ editor, position, onClose }: { editor: Editor; position: 
         <div className="max-h-56 overflow-y-auto py-1">
           {step === "note" && (filteredNotes.length === 0
             ? <p className="px-4 py-3 text-xs font-mono" style={{ color: "rgba(255,255,255,0.3)" }}>No notes</p>
-            : filteredNotes.map((note: any, i: number) => (
+            : filteredNotes.map((note, i) => (
                 <button key={note.id}
                   onClick={() => { setNoteId(note.id); setStep("block"); setQuery(""); setFocused(0); }}
                   onMouseEnter={() => setFocused(i)}
@@ -328,7 +334,7 @@ function BlockPicker({ editor, position, onClose }: { editor: Editor; position: 
             ? <p className="px-4 py-3 text-xs font-mono" style={{ color: "rgba(255,255,255,0.3)" }}>
                 No blocks found. Write some content in the source note first.
               </p>
-            : filteredBlocks.map((block: any, i: number) => (
+            : filteredBlocks.map((block, i) => (
                 <button key={block.blockId} onClick={() => insertBlock(block.blockId)} onMouseEnter={() => setFocused(i)}
                   className="w-full text-left px-4 py-2.5 transition-colors"
                   style={{ background: i === focused ? "rgba(212,144,58,0.10)" : "transparent",
@@ -347,10 +353,10 @@ function BlockPicker({ editor, position, onClose }: { editor: Editor; position: 
 // ── BacklinksPanel ────────────────────────────────────────────────────────────
 
 function BacklinksPanel({ noteId }: { noteId: string }) {
-  const allNotes   = useNoteStore((s: any) => (s.notes ?? []) as any[]);
+  const allNotes   = useNoteStore((s) => s.notes);
   const [open, setOpen] = useState(false);
 
-  const backlinks = allNotes.filter((n: any) => {
+  const backlinks = allNotes.filter((n) => {
     if (n.id === noteId || n.archived) return false;
     const json = JSON.stringify(n.content ?? n.body ?? "");
     return json.includes(`"noteId":"${noteId}"`);
@@ -368,7 +374,7 @@ function BacklinksPanel({ noteId }: { noteId: string }) {
       </button>
       {open && (
         <div className="space-y-1 pl-3">
-          {backlinks.map((note: any) => (
+          {backlinks.map((note) => (
             <div key={note.id}
               className="text-xs font-sans truncate py-0.5"
               style={{ color: "rgba(0,0,0,0.4)" }}>

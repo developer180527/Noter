@@ -1,6 +1,7 @@
 import { useState }     from "react";
 import { SectionHeader, SettingGroup, SettingRow, Toggle, Select } from "./shared";
 import { useSettingsStore } from "../../settings.store";
+import { isTauri } from "@/bridge";
 
 // ── Font options — must match FONTS in TipTapEditor.tsx ──────────────────────
 
@@ -79,6 +80,77 @@ function ClearDataRow() {
         <button onClick={reset} className="text-xs font-mono text-subtle hover:text-ink transition-colors">Cancel</button>
       </div>
     </div>
+  );
+}
+
+// ── ExportLocationRow ────────────────────────────────────────────────────────
+
+function labelForPath(path: string | null): string {
+  if (!path) return "Desktop";
+  const segments = path.split(/[\\/]/).filter(Boolean);
+  return segments[segments.length - 1] ?? path;
+}
+
+function ExportLocationRow() {
+  const exportDirectory = useSettingsStore((s) => s.exportDirectory);
+  const setSetting      = useSettingsStore((s) => s.set);
+  const [error, setError] = useState<string | null>(null);
+
+  const chooseFolder = async () => {
+    setError(null);
+    try {
+      const { open } = await import("@tauri-apps/plugin-dialog");
+      const selected = await open({
+        directory:   true,
+        multiple:    false,
+        defaultPath: exportDirectory ?? undefined,
+        title:       "Choose export folder",
+      });
+      if (!selected || Array.isArray(selected)) return;
+      setSetting("exportDirectory", selected);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not choose folder.");
+    }
+  };
+
+  return (
+    <>
+      <SettingRow
+        label="Export location"
+        description={isTauri
+          ? "Exports are saved here automatically."
+          : "Browser exports ask where to save each file."}
+      >
+        {isTauri ? (
+          <div className="flex items-center gap-2">
+            <span className="max-w-44 truncate text-2xs font-mono text-muted">
+              {labelForPath(exportDirectory)}
+            </span>
+            <button
+              onClick={chooseFolder}
+              className="text-xs font-mono text-amber hover:text-amber-glow transition-colors"
+            >
+              Choose
+            </button>
+            {exportDirectory && (
+              <button
+                onClick={() => { setError(null); setSetting("exportDirectory", null); }}
+                className="text-xs font-mono text-subtle hover:text-ink transition-colors"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        ) : (
+          <span className="text-2xs font-mono text-subtle">Prompt every export</span>
+        )}
+      </SettingRow>
+      {error && (
+        <div className="px-4 py-2 bg-danger/5 text-2xs font-mono text-danger">
+          {error}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -177,6 +249,7 @@ export function NotesSection() {
             ]}
           />
         </SettingRow>
+        <ExportLocationRow />
       </SettingGroup>
 
       <SettingGroup title="New Notes">

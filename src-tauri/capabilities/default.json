@@ -23,6 +23,7 @@
     "fs:allow-exists",
     "fs:allow-copy-file",
     "fs:scope-appdata-recursive",
+    "fs:allow-desktop-write-recursive",
     "shell:allow-open",
     {
       "identifier": "shell:allow-execute",

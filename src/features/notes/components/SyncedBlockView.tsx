@@ -1,8 +1,9 @@
 // src/features/notes/components/SyncedBlockView.tsx
-import { NodeViewWrapper }  from "@tiptap/react";
+import { NodeViewWrapper, type NodeViewProps }  from "@tiptap/react";
 import { useNoteStore }     from "@/features/notes/note.store";
 import { useMemo }          from "react";
 import { ExternalLink }     from "lucide-react";
+import type { Note, TipTapNode } from "@/features/notes/types";
 
 
 
@@ -10,12 +11,12 @@ import { ExternalLink }     from "lucide-react";
 
 // ── Simple JSX renderer for a single ProseMirror node ────────────────────────
 
-function renderNode(node: any, key: number): React.ReactNode {
+function renderNode(node: TipTapNode | null | undefined, key: number): React.ReactNode {
   if (!node) return null;
 
   if (node.type === "text") {
-    let el: React.ReactNode = node.text as string;
-    const marks: any[] = node.marks ?? [];
+    let el: React.ReactNode = node.text ?? "";
+    const marks = node.marks ?? [];
     for (const mark of marks) {
       if (mark.type === "bold")      el = <strong key={key}>{el}</strong>;
       else if (mark.type === "italic")    el = <em      key={key}>{el}</em>;
@@ -26,7 +27,7 @@ function renderNode(node: any, key: number): React.ReactNode {
     return el;
   }
 
-  const children = (node.content ?? []).map((child: any, i: number) =>
+  const children = (node.content ?? []).map((child, i) =>
     renderNode(child, i)
   );
 
@@ -41,17 +42,18 @@ function renderNode(node: any, key: number): React.ReactNode {
 
 // ── SyncedBlockView ───────────────────────────────────────────────────────────
 
-export function SyncedBlockView({ node }: any) {
-  const { sourceNoteId, blockId } = node.attrs;
+export function SyncedBlockView({ node }: NodeViewProps) {
+  const sourceNoteId = typeof node.attrs.sourceNoteId === "string" ? node.attrs.sourceNoteId : "";
+  const blockId = typeof node.attrs.blockId === "string" ? node.attrs.blockId : "";
 
   const sourceNote = useNoteStore(
-    (s: any) => s.notes?.find((n: any) => n.id === sourceNoteId)
+    (s): Note | undefined => s.notes.find((n) => n.id === sourceNoteId)
   );
 
   const sourceBlock = useMemo(() => {
     const doc = sourceNote?.content ?? sourceNote?.body;
     if (!doc || typeof doc === "string") return null;
-    return (doc.content ?? []).find((n: any) => n.attrs?.blockId === blockId) ?? null;
+    return (doc.content ?? []).find((n) => n.attrs?.blockId === blockId) ?? null;
   }, [sourceNote?.content, sourceNote?.body, blockId]);
 
   const goToSource = (e: React.MouseEvent) => {

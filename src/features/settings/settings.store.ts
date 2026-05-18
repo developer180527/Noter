@@ -19,6 +19,7 @@ export interface AppSettings {
   spellCheck:        boolean;
   defaultNoteTitle:  string;
   defaultEditorFont: string;   // font-family value, "" = prose-noter default
+  exportDirectory:   string | null; // null = platform default, Desktop in Tauri
 
   // Appearance
   reducedMotion: boolean;
@@ -53,6 +54,7 @@ const DEFAULTS: AppSettings = {
   spellCheck:        true,
   defaultNoteTitle:  "Untitled",
   defaultEditorFont: "",        // "" = use prose-noter default (Crimson Pro)
+  exportDirectory:   null,
   reducedMotion:     false,
   persistWindowSize:    true,
   persistWorkflowState: true,

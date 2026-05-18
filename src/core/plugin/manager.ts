@@ -193,20 +193,11 @@ export class PluginManager {
         );
       }
 
-      // Fix F: apiVersion is required, not optional.
-      // A missing apiVersion is treated as a future unknown version, not "1.0".
-      // This prevents plugins built against a newer (breaking) API from loading
-      // silently and crashing at runtime.
-      const pluginApiVersion = (manifest as any).apiVersion;
-      if (!pluginApiVersion) {
+      // Fix F: apiVersion is required, not optional. validateManifest() has
+      // already checked that the field exists and is a string.
+      if (manifest.apiVersion !== SUPPORTED_API_VERSION) {
         throw new Error(
-          `Missing required field 'apiVersion'. ` +
-          `Add "apiVersion": "${SUPPORTED_API_VERSION}" to manifest.json.`
-        );
-      }
-      if (pluginApiVersion !== SUPPORTED_API_VERSION) {
-        throw new Error(
-          `API version mismatch: plugin declares '${pluginApiVersion}', ` +
+          `API version mismatch: plugin declares '${manifest.apiVersion}', ` +
           `host supports '${SUPPORTED_API_VERSION}'.`
         );
       }
@@ -215,7 +206,7 @@ export class PluginManager {
       const error = e instanceof Error ? e.message : String(e);
       console.error(`[PluginManager] Manifest error for '${folderName}':`, error);
       usePluginStore.getState()._setPlugin(folderName, {
-        manifest: { id: folderName, name: folderName, version: "0.0.0", permissions: [] },
+        manifest: { id: folderName, name: folderName, version: "0.0.0", apiVersion: SUPPORTED_API_VERSION, permissions: [] },
         status:   "error",
         error,
       });

@@ -14,7 +14,14 @@
 import type { PluginManifest }   from "./manifest";
 import type { PluginPermission } from "./permissions";
 import type { KernelInterface, EventBusInterface } from "../types";
+import type { Note } from "@/features/notes/types";
 import { BRIDGE_CLIENT_CODE }    from "./bridge-client";
+
+declare global {
+  interface Window {
+    __noterReact?: typeof import("react");
+  }
+}
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -104,6 +111,8 @@ function sanitize(data: unknown): unknown {
 
 interface PluginRequest { id: string; action: string; payload?: unknown; }
 interface HostResponse  { id: string; result?: unknown; error?: BridgeError; }
+type NoteCreatePayload = Partial<Pick<Note, "title" | "body" | "tags">>;
+type NoteUpdatePayload = { id: string; patch: Partial<Pick<Note, "title" | "body" | "tags">> };
 
 // ── PluginBridgeHost ──────────────────────────────────────────────────────────
 
@@ -315,10 +324,10 @@ try {
       }
       case "notes.create": {
         const { useNoteStore } = await import("@/features/notes/note.store");
-        return String(await useNoteStore.getState().createNote(payload as any));
+        return String(useNoteStore.getState().createNote(payload as NoteCreatePayload));
       }
       case "notes.update": {
-        const { id, patch } = payload as { id: string; patch: any };
+        const { id, patch } = payload as NoteUpdatePayload;
         const { useNoteStore } = await import("@/features/notes/note.store");
         if (!useNoteStore.getState().notes.some(n => n.id === id)) throw new NotFoundError(`Note '${id}' not found`);
         useNoteStore.getState().updateNote(id, patch);
@@ -439,7 +448,7 @@ try {
   private _makeIframePageComponent() {
     const iframe = this.iframe;
     return function PluginIframePage() {
-      const React = (window as any).__noterReact;
+      const React = window.__noterReact;
       if (!React || !iframe) return null;
       return React.createElement("div", {
         style: { width: "100%", height: "100%", position: "relative" },

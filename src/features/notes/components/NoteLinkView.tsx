@@ -1,13 +1,14 @@
 // src/features/notes/components/NoteLinkView.tsx
-import { NodeViewWrapper } from "@tiptap/react";
+import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import { useNoteStore }    from "@/features/notes/note.store";
 
-export function NoteLinkView({ node }: any) {
-  const { noteId, noteTitle } = node.attrs;
+export function NoteLinkView({ node }: NodeViewProps) {
+  const noteId = typeof node.attrs.noteId === "string" ? node.attrs.noteId : "";
+  const noteTitle = typeof node.attrs.noteTitle === "string" ? node.attrs.noteTitle : "";
 
   // Live — if the source note's title changes this updates automatically
   const liveTitle = useNoteStore(
-    (s: any) => s.notes?.find((n: any) => n.id === noteId)?.title
+    (s) => s.notes.find((n) => n.id === noteId)?.title
   );
   const title = liveTitle || noteTitle || "Untitled";
 

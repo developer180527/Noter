@@ -117,6 +117,17 @@ interface Expr {
   error:   string | null;
 }
 
+interface PlotlyAxisLayout {
+  range?: [number, number];
+}
+
+interface PlotlyDiv extends HTMLDivElement {
+  _fullLayout?: {
+    xaxis?: PlotlyAxisLayout;
+    yaxis?: PlotlyAxisLayout;
+  };
+}
+
 // ── Plotly dark layout ────────────────────────────────────────────────────────
 
 const LAYOUT: Partial<Plotly.Layout> = {
@@ -193,7 +204,7 @@ export function CalculatorPage() {
   useEffect(() => {
     if (!plotRef.current || !plotMounted.current) return;
 
-    const el     = plotRef.current as any;
+    const el     = plotRef.current as PlotlyDiv;
     const xRange = el._fullLayout?.xaxis?.range as [number,number] | undefined;
     const xMin   = xRange?.[0] ?? -10;
     const xMax   = xRange?.[1] ?? 10;
@@ -253,7 +264,7 @@ export function CalculatorPage() {
 
   // ── Zoom ────────────────────────────────────────────────────────────────────
   const zoom = useCallback((factor: number) => {
-    const el = plotRef.current as any;
+    const el = plotRef.current as PlotlyDiv | null;
     if (!el) return;
     const xRange = el._fullLayout?.xaxis?.range as [number,number];
     const yRange = el._fullLayout?.yaxis?.range as [number,number];

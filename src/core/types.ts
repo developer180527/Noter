@@ -65,11 +65,9 @@ export interface FeatureDefinition<Config = unknown> {
 import type { ComponentType } from "react";
 
 export interface SlotRegistry {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  register(slot: string, component: ComponentType<any>): void;
+  register<P>(slot: string, component: ComponentType<P>): void;
   unregister(slot: string): void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  get(slot: string): ComponentType<any> | undefined;
+  get<P = unknown>(slot: string): ComponentType<P> | undefined;
   has(slot: string): boolean;
 }
 

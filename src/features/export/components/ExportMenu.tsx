@@ -8,18 +8,19 @@ import type { Note } from "@/features/notes/types";
 import { useNoteStore } from "@/features/notes/note.store";
 
 interface ExportMenuProps {
-  note: Note;
+  note:            Note;
+  onBeforeExport?: () => Note | null | void | Promise<Note | null | void>;
 }
 
 interface ExportOption {
   label:       string;
   description: string;
   icon:        LucideIcon;
-  action:      () => void;
+  action:      () => Promise<void>;
   divider?:    boolean;
 }
 
-export function ExportMenu({ note }: ExportMenuProps) {
+export function ExportMenu({ note, onBeforeExport }: ExportMenuProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -35,32 +36,41 @@ export function ExportMenu({ note }: ExportMenuProps) {
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  const noteStore = useNoteStore.getState();
+  const getExportNote = async (): Promise<Note> => {
+    const flushed = await onBeforeExport?.();
+    if (flushed) return flushed;
+    return useNoteStore.getState().notes.find((n) => n.id === note.id) ?? note;
+  };
+
   const options: ExportOption[] = [
-    
-    // Fix the PDF option action:
     {
       label:       "Print / Export PDF",
       description: "Exports a beautifully formatted PDF to disk",
       icon:        Printer,
-      action:      () => {
-        exportPdf(note, noteStore)
-          .catch((e) => console.error("PDF export failed:", e));
+      action:      async () => {
+        const latestNote = await getExportNote();
+        await exportPdf(latestNote, useNoteStore.getState());
         setOpen(false);
-          },
+      },
     },
     {
       label:       "Export as HTML",
       description: "Self-contained file, opens in any browser",
       icon:        Code,
-      action:      () => { exportHtml(note).then(() => setOpen(false)); },
+      action:      async () => {
+        await exportHtml(await getExportNote());
+        setOpen(false);
+      },
       divider:     true,
     },
     {
       label:       "Export as Markdown",
       description: "Plain text with YAML frontmatter",
       icon:        FileText,
-      action:      () => { exportMarkdown(note).then(() => setOpen(false)); },
+      action:      async () => {
+        await exportMarkdown(await getExportNote());
+        setOpen(false);
+      },
     },
   ];
 
@@ -95,7 +105,9 @@ export function ExportMenu({ note }: ExportMenuProps) {
               <div key={opt.label}>
                 {opt.divider && <div className="h-px bg-border my-1" />}
                 <button
-                  onClick={opt.action}
+                  onClick={() => {
+                    opt.action().catch((e) => console.error(`${opt.label} failed:`, e));
+                  }}
                   className="w-full flex items-start gap-3 px-3 py-2 rounded-md
                              hover:bg-raised transition-colors text-left group"
                 >

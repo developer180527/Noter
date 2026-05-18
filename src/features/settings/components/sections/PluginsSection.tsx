@@ -7,8 +7,13 @@ import {
 import { clsx } from "clsx";
 import { usePluginStore, PERMISSION_LABELS, SENSITIVE_PERMISSIONS } from "@/core";
 import type { LoadedPlugin } from "@/core";
+import type { Event as TauriEvent } from "@tauri-apps/api/event";
 import { SectionHeader, SettingGroup, SettingRow, Toggle } from "./shared";
 import { isTauri } from "@/bridge";
+
+interface TauriDragDropPayload {
+  paths?: string[];
+}
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 
@@ -142,7 +147,7 @@ function PluginDropZone({ onInstalled }: { onInstalled: () => void }) {
 
     import("@tauri-apps/api/event").then(({ listen }) => {
       // Drop — install the plugin
-      listen("tauri://drag-drop", async (event: any) => {
+      listen("tauri://drag-drop", async (event: TauriEvent<TauriDragDropPayload>) => {
         const paths: string[] = event.payload?.paths ?? [];
         if (paths.length === 0) return;
         setInstalling(true);

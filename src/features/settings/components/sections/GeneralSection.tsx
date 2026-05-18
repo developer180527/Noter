@@ -29,7 +29,7 @@ function UpdateBanner() {
                     flex items-center justify-between">
       <div>
         <p className="text-xs font-sans text-ink/90 font-medium">noter is up to date</p>
-        <p className="text-2xs text-subtle font-mono mt-0.5">v1.0.0 — last checked just now</p>
+        <p className="text-2xs text-subtle font-mono mt-0.5">v3.1.0 — last checked just now</p>
       </div>
       <button className="text-xs font-mono text-amber hover:text-amber-glow transition-colors">
         Check again
@@ -104,7 +104,7 @@ export function GeneralSection() {
           <span className="text-xs font-mono text-amber">{bridge.platform}</span>
         </SettingRow>
         <SettingRow label="Version">
-          <span className="text-xs font-mono text-muted">1.0.0</span>
+          <span className="text-xs font-mono text-muted">3.1.0</span>
         </SettingRow>
         <SettingRow
           label="Data location"

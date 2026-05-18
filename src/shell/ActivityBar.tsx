@@ -55,12 +55,14 @@ interface ActivityItemProps {
   onPointerUp:   (e: React.PointerEvent) => void;
   // Ref callback
   itemRef: (el: HTMLDivElement | null) => void;
+  shouldSuppressClick: (id: string) => boolean;
 }
 
 function ActivityItem({
   item, tabMap, activeTabId, activePanel,
   isBottom, isRight, itemSize, isDragging, isDropTarget,
   onPointerDown, onPointerMove, onPointerUp, itemRef,
+  shouldSuppressClick,
 }: ActivityItemProps) {
   const { setActivePanel } = useSidebarStore();
   const { openTab, setActiveTab } = useTabStore();
@@ -74,9 +76,9 @@ function ActivityItem({
     ? activePanel === item.id && activeTabId === tabId
     : activeTabId === tabId;
 
-  const handleClick = (e: React.MouseEvent) => {
+  const handleClick = () => {
     // Suppress click if we just finished dragging
-    if ((e.currentTarget as any).__wasDragging) return;
+    if (shouldSuppressClick(item.id)) return;
 
     if (item.isPanelItem) {
       setActivePanel(item.id);
@@ -260,6 +262,8 @@ export function ActivityBar() {
   const dragMoved                     = useRef(false);
   const DRAG_THRESHOLD                = 6; // px before drag starts
   const pointerStart                  = useRef<{ x: number; y: number } | null>(null);
+  const pendingDrag                   = useRef<{ id: string; idx: number } | null>(null);
+  const suppressClickIds              = useRef<Set<string>>(new Set());
 
   const startDrag = useCallback((id: string, idx: number, e: React.PointerEvent) => {
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -267,20 +271,17 @@ export function ActivityBar() {
     dragMoved.current     = false;
     dragStartIdx.current  = idx;
     // Don't set draggingId yet — wait for threshold
-    (e.currentTarget as any).__pendingDragId  = id;
-    (e.currentTarget as any).__pendingDragIdx = idx;
+    pendingDrag.current   = { id, idx };
   }, []);
 
   const moveDrag = useCallback((e: React.PointerEvent) => {
-    const el = e.currentTarget as any;
-
     // Check threshold
     if (!dragMoved.current && pointerStart.current) {
       const dx = e.clientX - pointerStart.current.x;
       const dy = e.clientY - pointerStart.current.y;
       if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
       dragMoved.current = true;
-      setDraggingId(el.__pendingDragId ?? null);
+      setDraggingId(pendingDrag.current?.id ?? null);
     }
 
     if (!dragMoved.current || !draggingId) return;
@@ -300,8 +301,7 @@ export function ActivityBar() {
     setDropIndex(closest);
   }, [draggingId, isBottom, sortedReorderable]);
 
-  const endDrag = useCallback((e: React.PointerEvent) => {
-    const el = e.currentTarget as any;
+  const endDrag = useCallback(() => {
     if (dragMoved.current && draggingId !== null && dropIndex !== null) {
       const from = dragStartIdx.current;
       const to   = dropIndex;
@@ -312,14 +312,21 @@ export function ActivityBar() {
         setOrder(ids);
       }
       // Mark as dragged so click handler ignores this pointer up
-      el.__wasDragging = true;
-      setTimeout(() => { el.__wasDragging = false; }, 0);
+      suppressClickIds.current.add(draggingId);
+      setTimeout(() => { suppressClickIds.current.delete(draggingId); }, 0);
     }
     setDraggingId(null);
     setDropIndex(null);
     dragMoved.current    = false;
     pointerStart.current = null;
+    pendingDrag.current  = null;
   }, [draggingId, dropIndex, sortedReorderable, setOrder]);
+
+  const shouldSuppressClick = useCallback((id: string): boolean => {
+    if (!suppressClickIds.current.has(id)) return false;
+    suppressClickIds.current.delete(id);
+    return true;
+  }, []);
 
   // ── Bar layout classes ───────────────────────────────────────────────────────
 
@@ -337,7 +344,7 @@ export function ActivityBar() {
     ? { height: 72 }
     : { width: 64 };
 
-  const itemCommonProps = { tabMap, activeTabId, activePanel, isBottom, isRight };
+  const itemCommonProps = { tabMap, activeTabId, activePanel, isBottom, isRight, shouldSuppressClick };
 
   return (
     <div

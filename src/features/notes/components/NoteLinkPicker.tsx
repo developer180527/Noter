@@ -4,6 +4,7 @@
 import { useState, useEffect, useRef } from "react";
 import type { Editor }  from "@tiptap/core";
 import { useNoteStore } from "@/features/notes/note.store";
+import type { Note }    from "@/features/notes/types";
 
 interface PickerPos { top: number; left: number; insertPos: number; }
 
@@ -18,18 +19,18 @@ export function NoteLinkPicker({ editor, position, onClose }: NoteLinkPickerProp
   const [focused, setFocused] = useState(0);
   const inputRef              = useRef<HTMLInputElement>(null);
 
-  const notes = useNoteStore((s: any) => (s.notes ?? []) as any[]);
+  const notes = useNoteStore((s) => s.notes);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
   const filtered = notes
-    .filter((n: any) =>
+    .filter((n) =>
       !n.archived &&
       (n.title || "Untitled").toLowerCase().includes(query.toLowerCase())
     )
     .slice(0, 8);
 
-  const insert = (note: any) => {
+  const insert = (note: Note) => {
     editor
       .chain()
       .focus()
@@ -97,7 +98,7 @@ export function NoteLinkPicker({ editor, position, onClose }: NoteLinkPickerProp
               No notes found
             </p>
           ) : (
-            filtered.map((note: any, i: number) => (
+            filtered.map((note, i) => (
               <button
                 key={note.id}
                 onClick={() => insert(note)}

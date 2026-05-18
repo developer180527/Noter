@@ -1,13 +1,14 @@
 // src/features/notes/components/BacklinksPanel.tsx
 import { useState }      from "react";
 import { useNoteStore }  from "@/features/notes/note.store";
+import type { Note }     from "@/features/notes/types";
 
 export function BacklinksPanel({ noteId }: { noteId: string }) {
   const [open, setOpen] = useState(false);
 
-  const notes = useNoteStore((s: any) => (s.notes ?? []) as any[]);
+  const notes = useNoteStore((s) => s.notes);
 
-  const backlinks = notes.filter((n: any) => {
+  const backlinks = notes.filter((n) => {
     if (n.id === noteId || n.archived) return false;
     // TipTap stores noteLink attrs as JSON — search for this noteId in the content
     const json = JSON.stringify(n.content ?? n.body ?? "");
@@ -16,7 +17,7 @@ export function BacklinksPanel({ noteId }: { noteId: string }) {
 
   if (backlinks.length === 0) return null;
 
-  const openNote = (note: any) => {
+  const openNote = (note: Note) => {
     // Dispatch global event — NotesPage / notes feature listens and opens the tab
     // with the correct component reference (only the notes feature knows it)
     window.dispatchEvent(
@@ -39,7 +40,7 @@ export function BacklinksPanel({ noteId }: { noteId: string }) {
 
       {open && (
         <div className="space-y-1">
-          {backlinks.map((note: any) => (
+          {backlinks.map((note) => (
             <button
               key={note.id}
               onClick={() => openNote(note)}
