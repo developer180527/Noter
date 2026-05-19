@@ -2,6 +2,7 @@ import { useState }     from "react";
 import { SectionHeader, SettingGroup, SettingRow, Toggle, Select } from "./shared";
 import { useSettingsStore } from "../../settings.store";
 import { isTauri } from "@/bridge";
+import { open }       from "@tauri-apps/plugin-dialog";
 
 // ── Font options — must match FONTS in TipTapEditor.tsx ──────────────────────
 
@@ -99,7 +100,6 @@ function ExportLocationRow() {
   const chooseFolder = async () => {
     setError(null);
     try {
-      const { open } = await import("@tauri-apps/plugin-dialog");
       const selected = await open({
         directory:   true,
         multiple:    false,

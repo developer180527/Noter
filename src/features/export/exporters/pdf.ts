@@ -9,7 +9,6 @@ import { NotePDF }       from "./pdfDocument";
 import type { Note, NoteStore } from "@/features/notes/types";
 import { saveExportBlob } from "./fileSave";
 
-
 // ── Main export function ──────────────────────────────────────────────────────
 
 export async function exportPdf(note: Note, noteStore?: Pick<NoteStore, "notes">): Promise<void> {

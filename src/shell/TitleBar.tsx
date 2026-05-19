@@ -1,24 +1,22 @@
 import { useEffect, useState } from "react";
-import { Minus, Square, X } from "lucide-react";
+import { Minus, Square, X }   from "lucide-react";
+import { getCurrentWindow }   from "@tauri-apps/api/window";
 
 const isMac = navigator.userAgent.includes("Mac");
-
-async function getWindow() {
-  const { getCurrentWindow } = await import("@tauri-apps/api/window");
-  return getCurrentWindow();
-}
+const win   = getCurrentWindow();
 
 function WinControls() {
   const [maximized, setMaximized] = useState(false);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
-    getWindow().then(async (win) => {
+
+    win.isMaximized().then(setMaximized);
+
+    win.onResized(async () => {
       setMaximized(await win.isMaximized());
-      unlisten = await win.onResized(async () => {
-        setMaximized(await win.isMaximized());
-      });
-    });
+    }).then((fn) => { unlisten = fn; });
+
     return () => { unlisten?.(); };
   }, []);
 
@@ -41,13 +39,13 @@ function WinControls() {
 
   return (
     <div className="flex items-stretch h-full shrink-0">
-      <WinBtn onClick={() => getWindow().then(w => w.minimize())}>
+      <WinBtn onClick={() => win.minimize()}>
         <Minus size={11} strokeWidth={1.5} />
       </WinBtn>
-      <WinBtn onClick={() => getWindow().then(w => w.toggleMaximize())}>
+      <WinBtn onClick={() => win.toggleMaximize()}>
         <Square size={10} strokeWidth={1.5} style={{ borderRadius: maximized ? 2 : 0 }} />
       </WinBtn>
-      <WinBtn onClick={() => getWindow().then(w => w.close())} danger>
+      <WinBtn onClick={() => win.close()} danger>
         <X size={11} strokeWidth={1.5} />
       </WinBtn>
     </div>

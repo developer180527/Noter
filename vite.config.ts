@@ -4,6 +4,12 @@ import path from "path";
 
 export default defineConfig(async () => ({
   plugins: [react()],
+
+  optimizeDeps: {
+    exclude: ["pdfjs-dist"],
+    // Vite 8 uses rolldownOptions instead of rollupOptions
+  },
+
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

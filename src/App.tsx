@@ -11,6 +11,8 @@ import { tauriSyncFeature } from "@/bridge/tauri-sync";
 import { exportFeature }    from "@/features/export";
 import { canvasFeature }    from "@/features/canvas";
 import { calculatorFeature } from "@/features/calculator";
+import { pdfFeature } from "@/features/pdf";
+
 
 const kernel        = Kernel.getInstance();
 const pluginManager = new PluginManager(kernel, kernel.events);
@@ -23,6 +25,7 @@ kernel.register(tauriSyncFeature);
 kernel.register(exportFeature);
 kernel.register(canvasFeature);
 kernel.register(calculatorFeature);
+kernel.register(pdfFeature);
 
 export default function App() {
   const booted = useRef(false);
